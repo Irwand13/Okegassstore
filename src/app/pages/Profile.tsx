@@ -48,11 +48,11 @@ const getTypeLabel = (type: string) => {
 };
 
 const user = {
-  name: "GamerPro_ID",
-  email: "gamerpro@email.com",
+  name: "User",
+  email: "user@okegass.com",
   phone: "0812-3456-7890",
-  avatar: "GP",
-  joinDate: "Januari 2025",
+  avatar: "U",
+  joinDate: "Mei 2026",
   verified: true,
   level: "Trusted Seller",
   rating: 4.8,
@@ -402,7 +402,7 @@ export default function Profile() {
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">ID Referral</label>
                   <div className="flex items-center justify-between py-3 px-4 bg-gray-50 rounded-xl">
-                    <span className="font-semibold text-gray-900 font-mono">OKG-GP12345</span>
+                    <span className="font-semibold text-gray-900 font-mono">OKG-US12345</span>
                     <button onClick={handleCopyId} className="flex items-center gap-1.5 text-xs text-[#DC2626] font-bold hover:text-red-700 transition-colors">
                       <Copy className="w-3.5 h-3.5" />
                       {copied ? "Disalin!" : "Salin"}

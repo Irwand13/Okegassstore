@@ -20,7 +20,7 @@ export default function Navbar() {
                 🎮
               </div>
               <span style={{ fontFamily: 'var(--font-display)' }} className="text-2xl font-bold">
-                OkeGass
+                OkeGass Store
               </span>
             </Link>
 

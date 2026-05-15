@@ -37,7 +37,7 @@ export default function AuthModal() {
                 <div style={{ fontFamily: 'var(--font-display)' }} className="text-2xl font-bold">
                   OkeGass
                 </div>
-                <div className="text-sm opacity-90">Top Up Game Termurah</div>
+                <div className="text-sm opacity-90">Platform Top Up Game dan Jual Beli Akun</div>
               </div>
             </div>
             <button
@@ -132,7 +132,7 @@ export default function AuthModal() {
 
           {isLogin && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-              <strong>Demo:</strong> demo@okegass.com / password
+              <strong>Akun Demo:</strong> user@okegass.com / password
             </div>
           )}
 

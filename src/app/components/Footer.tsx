@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { Facebook, Instagram, Twitter, Mail } from "lucide-react";
+import { Instagram } from "lucide-react";
+import { WhatsApp } from "@mui/icons-material";
 
 export default function Footer() {
   return (
@@ -20,17 +21,17 @@ export default function Footer() {
               Platform top up game dan jual beli akun terpercaya dengan sistem escrow 100% aman.
             </p>
             <div className="flex gap-3">
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
-                <Facebook className="w-5 h-5" />
-              </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
+              <a href="https://www.instagram.com/irwndd._" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
                 <Instagram className="w-5 h-5" />
               </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
-                <Twitter className="w-5 h-5" />
+              <a href="https://www.instagram.com/vynurdiansyah" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
+                <Instagram className="w-5 h-5" />
               </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
-                <Mail className="w-5 h-5" />
+              <a href="https://www.instagram.com/dvalfn0" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
+                <Instagram className="w-5 h-5" />
+              </a>
+              <a href="https://api.whatsapp.com/send/?phone=6289667290516&text&type=phone_number&app_absent=0" className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center hover:bg-[#DC2626] transition-colors">
+                <WhatsApp className="w-5 h-5" />
               </a>
             </div>
           </div>

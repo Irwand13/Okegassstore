@@ -17,7 +17,7 @@ export default function HeroSection() {
           <div className="space-y-6 animate-in fade-in slide-in-from-left duration-700">
             <div className="inline-flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full text-sm">
               <Sparkles className="w-4 h-4" />
-              <span>Trusted by 150K+ Gamers</span>
+              <span>Trusted by 10+ Gamers</span>
             </div>
             
             <h1
@@ -95,13 +95,13 @@ export default function HeroSection() {
         <div className="grid grid-cols-3 gap-6 mt-16 animate-in fade-in slide-in-from-bottom duration-700 delay-300">
           <div className="text-center">
             <div style={{ fontFamily: 'var(--font-display)' }} className="text-4xl md:text-5xl font-bold">
-              2.5 Juta+
+              19 Juta+
             </div>
             <div className="text-white/80 mt-1">Transaksi</div>
           </div>
           <div className="text-center">
             <div style={{ fontFamily: 'var(--font-display)' }} className="text-4xl md:text-5xl font-bold">
-              150K+
+              3
             </div>
             <div className="text-white/80 mt-1">Pengguna</div>
           </div>
