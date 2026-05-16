@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router";
 import { User, ArrowRight, Star, Shield, Zap } from "lucide-react";
 
-import mlImg      from "../../../img/akun-ml.jpg";
-import pubgImg    from "../../../img/akun-pubg.png";
-import genshinImg from "../../../img/akun-genshin.png";
+// ── Ganti URL ini dengan import foto asli kalau sudah siap ───────────────────
+const PLACEHOLDER = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTz-gXYICieDt2ZPnROrkqbrtVigrh8HqnqXA&s";
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function FeaturedAccounts() {
   const navigate = useNavigate();
@@ -14,7 +14,7 @@ export default function FeaturedAccounts() {
       game: "Mobile Legends",
       gameColor: "#1E88E5",
       glowColor: "rgba(30,136,229,0.35)",
-      image: mlImg,
+      image: PLACEHOLDER,
       title: "Akun Mythic 800+ Points",
       rank: "Mythic Glory",
       heroes: "120+ Heroes",
@@ -30,7 +30,7 @@ export default function FeaturedAccounts() {
       game: "PUBG Mobile",
       gameColor: "#6366F1",
       glowColor: "rgba(99,102,241,0.35)",
-      image: pubgImg,
+      image: PLACEHOLDER,
       title: "Conqueror Season 25",
       rank: "Conqueror",
       heroes: "50+ Outfits",
@@ -46,7 +46,7 @@ export default function FeaturedAccounts() {
       game: "Genshin Impact",
       gameColor: "#A78BFA",
       glowColor: "rgba(167,139,250,0.35)",
-      image: genshinImg,
+      image: PLACEHOLDER,
       title: "AR 60 All 5-Star Characters",
       rank: "AR 60",
       heroes: "All 5★",
