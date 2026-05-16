@@ -5,6 +5,7 @@ import TopUp from "./pages/TopUp";
 import Marketplace from "./pages/Marketplace";
 import SellAccount from "./pages/SellAccount";
 import Profile from "./pages/Profile";
+import Bantuan from "./pages/Bantuan";
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ export const router = createBrowserRouter([
       { path: "marketplace", Component: Marketplace },
       { path: "marketplace/sell", Component: SellAccount },
       { path: "profile", Component: Profile },
+      { path: "Bantuan", Component: Bantuan },
     ],
   },
 ]);
