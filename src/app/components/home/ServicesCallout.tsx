@@ -353,7 +353,7 @@ export default function ServicesCallout() {
               {/* CTA Button */}
               <button
                 className="svc-btn"
-                onClick={() => navigate(`/topup?tab=${svc.id}`)}
+                onClick={() => navigate(`/layanandigital`)}
                 style={{
                   background: `${svc.color}18`,
                   border: `1px solid ${svc.color}40`,

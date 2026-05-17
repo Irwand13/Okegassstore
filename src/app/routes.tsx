@@ -6,6 +6,7 @@ import Marketplace from "./pages/Marketplace";
 import SellAccount from "./pages/SellAccount";
 import Profile from "./pages/Profile";
 import Bantuan from "./pages/Bantuan";
+import pulsa from "./pages/pulsa";
 
 export const router = createBrowserRouter([
   {
@@ -17,7 +18,8 @@ export const router = createBrowserRouter([
       { path: "marketplace", Component: Marketplace },
       { path: "marketplace/sell", Component: SellAccount },
       { path: "profile", Component: Profile },
-      { path: "Bantuan", Component: Bantuan },
+      { path: "bantuan", Component: Bantuan },
+      { path: "layanandigital", Component: pulsa },
     ],
   },
 ]);
