@@ -413,8 +413,8 @@ export default function App() {
             </p>
 
             <div className={`btns rv ${on?"on":""}`} style={{transitionDelay:".52s"}}>
-              <a href="#" className="bp">⚡ TOP UP SEKARANG →</a>
-              <a href="#" className="bo">🎮 JUAL BELI AKUN</a>
+              <a href="/topup" className="bp">⚡ TOP UP SEKARANG →</a>
+              <a href="/marketplace" className="bo">🎮 JUAL BELI AKUN</a>
             </div>
 
             <div className={`stats rv ${on?"on":""}`} style={{transitionDelay:".64s"}}>
