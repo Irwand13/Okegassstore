@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Mock login - in real app would call API
     setUser({
       id: "1",
-      name: "Budi Santoso",
+      name: "User",
       email: email,
       avatar: "👤",
       verified: email === "demo@okegass.com",
