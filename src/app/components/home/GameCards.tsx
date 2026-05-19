@@ -527,7 +527,7 @@ export default function GameCards() {
                 margin: "4px 0 0",
                 fontFamily: "'Barlow', sans-serif",
               }}>
-                50+ game tersedia
+                20+ game tersedia
               </p>
             </div>
             <div style={{
@@ -556,9 +556,9 @@ export default function GameCards() {
           gap: 16,
         }}>
           {[
-            { val: "50+", label: "Game Tersedia" },
+            { val: "20+", label: "Game Tersedia" },
             { val: "< 1 Menit", label: "Proses Otomatis" },
-            { val: "3 Juta+", label: "Pelanggan Puas" },
+            { val: "30+", label: "Pelanggan Puas" },
             { val: "24/7", label: "Layanan Aktif" },
           ].map((stat) => (
             <div key={stat.label} style={{ textAlign: "center" }}>

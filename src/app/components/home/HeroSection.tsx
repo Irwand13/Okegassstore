@@ -394,7 +394,7 @@ export default function App() {
           {/* LEFT */}
           <div className="L">
             <div className={`pill rv ${on?"on":""}`} style={{transitionDelay:".05s"}}>
-              <span className="dot" /> Dipercaya 19 Juta+ Gamer Indonesia
+              <span className="dot" /> Dipercaya 19Juta+ Gamer Indonesia
             </div>
 
             <h1 className={`headline rv ${on?"on":""}`} style={{transitionDelay:".18s"}}>
@@ -418,7 +418,7 @@ export default function App() {
             </div>
 
             <div className={`stats rv ${on?"on":""}`} style={{transitionDelay:".64s"}}>
-              {[{n:19,s:"JT+",l:"Transaksi"},{n:3000,s:"+",l:"User Aktif"},{n:1,s:" MIN",l:"Proses"}].map(({n,s,l})=>(
+              {[{n:5,s:"",l:"Transaksi"},{n:3,s:"+",l:"User Aktif"},{n:1,s:" MIN",l:"Proses"}].map(({n,s,l})=>(
                 <div className="stat" key={l}>
                   <div className="sv"><Num n={n} suf={s}/></div>
                   <div className="sl">{l}</div>
