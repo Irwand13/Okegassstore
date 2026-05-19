@@ -7,12 +7,12 @@ type TabId = "pulsa" | "pln" | "ewallet";
 
 /* ─── Data ─── */
 const OPERATORS = [
-  { id: "telkomsel", label: "Telkomsel", color: "#EF4444", logo: "🔴" },
-  { id: "xl",       label: "XL Axiata", color: "#3B82F6", logo: "🔵" },
-  { id: "indosat",  label: "Indosat",   color: "#F59E0B", logo: "🟡" },
-  { id: "tri",      label: "Tri",       color: "#8B5CF6", logo: "🟣" },
-  { id: "smartfren",label: "Smartfren", color: "#10B981", logo: "🟢" },
-  { id: "axis",     label: "Axis",      color: "#EC4899", logo: "🩷" },
+  { id: "telkomsel", label: "Telkomsel", color: "#EF4444", logo: "/img/Telkomsel.png" },
+  { id: "xl",        label: "XL Axiata", color: "#3B82F6", logo: "/img/xl.png" },
+  { id: "indosat",   label: "Indosat",   color: "#F59E0B", logo: "/img/indosat.png" },
+  { id: "tri",       label: "Tri",       color: "#8B5CF6", logo: "/img/tri.png" },
+  { id: "smartfren", label: "Smartfren", color: "#10B981", logo: "/img/smartfren.png" },
+  { id: "axis",      label: "Axis",      color: "#EC4899", logo: "/img/axis.png" },
 ];
 
 const PULSA_NOMINAL = [
@@ -62,215 +62,54 @@ const EWALLET_NOMINAL = [
 
 const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
+/* ─── Sub-type toggle ─── */
 type PulsaMode = "pulsa" | "data";
-
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap');
-
-.topup-root { min-height: 100vh; background: #0d0d0f; font-family: 'Barlow', sans-serif; color: #fff; }
-
-/* Hero */
-.topup-hero {
-  position: relative; padding: 44px 0 40px; overflow: hidden;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.topup-hero-bg { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(220,38,38,0.1) 0%, rgba(234,88,12,0.05) 40%, transparent 100%); }
-.topup-hero-grid {
-  position: absolute; inset: 0;
-  background-image: linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px), linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
-  background-size: 40px 40px;
-}
-
-/* Tabs */
-.topup-tabs {
-  display: flex; gap: 8px; margin-bottom: 32px;
-  background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px; padding: 6px; width: fit-content;
-}
-.topup-tab {
-  display: flex; align-items: center; gap: 8px;
-  padding: 12px 20px; border-radius: 8px;
-  font-size: 13px; font-weight: 700; letter-spacing: 0.05em;
-  border: none; cursor: pointer; transition: all 0.2s;
-  background: transparent; color: rgba(255,255,255,0.4);
-  font-family: 'Barlow', sans-serif;
-}
-.topup-tab.active { color: #fff; }
-.topup-tab:hover:not(.active) { color: rgba(255,255,255,0.6); }
-
-/* Card */
-.topup-card {
-  background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 16px; padding: 28px;
-}
-.topup-card-title {
-  font-family: 'Rajdhani', sans-serif;
-  font-size: 20px; font-weight: 700; letter-spacing: 0.04em;
-  color: #fff; margin-bottom: 24px;
-}
-
-/* Label */
-.topup-label {
-  font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
-  text-transform: uppercase; color: rgba(255,255,255,0.3);
-  margin-bottom: 12px;
-}
-
-/* Grid */
-.topup-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
-@media (max-width: 600px) { .topup-grid { grid-template-columns: repeat(2, 1fr); } }
-
-.topup-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 14px; border-radius: 11px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.5);
-  font-size: 12px; font-weight: 700; font-family: 'Barlow', sans-serif;
-}
-.topup-btn:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); }
-.topup-btn.active { color: #fff; }
-.topup-logo { font-size: 22px; }
-
-/* Toggle */
-.topup-toggle {
-  display: flex; gap: 6px; margin-bottom: 24px;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 9px; padding: 4px;
-}
-.topup-toggle-btn {
-  flex: 1; padding: 9px; border-radius: 6px; border: none;
-  font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s;
-  background: transparent; color: rgba(255,255,255,0.4);
-  font-family: 'Barlow', sans-serif;
-}
-.topup-toggle-btn.active { background: rgba(59,130,246,0.2); color: #60A5FA; }
-
-/* Input */
-.topup-input {
-  width: 100%; padding: 12px 14px; box-sizing: border-box;
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 10px; color: #fff; font-size: 13px; font-weight: 500;
-  font-family: 'Barlow', sans-serif; outline: none; transition: all 0.2s;
-  margin-bottom: 16px;
-}
-.topup-input::placeholder { color: rgba(255,255,255,0.15); }
-.topup-input:focus { border-color: rgba(220,38,38,0.4); background: rgba(220,38,38,0.04); }
-
-/* Summary */
-.topup-summary {
-  background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 16px; padding: 24px;
-  position: sticky; top: 100px;
-}
-.topup-sum-row {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 13px; color: rgba(255,255,255,0.5); margin-bottom: 12px;
-}
-.topup-sum-row.total {
-  font-size: 15px; font-weight: 700; color: #fff;
-  padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.07); margin-top: 4px;
-}
-.topup-sum-val { font-weight: 700; color: rgba(255,255,255,0.85); }
-
-/* Button */
-.topup-btn-primary {
-  width: 100%; padding: 13px; border-radius: 11px; border: none;
-  font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700;
-  cursor: pointer; transition: all 0.25s; display: flex;
-  align-items: center; justify-content: center; gap: 8px;
-  background: linear-gradient(135deg, #DC2626, #EA580C);
-  color: #fff; box-shadow: 0 4px 14px rgba(220,38,38,0.3);
-  margin-top: 18px;
-}
-.topup-btn-primary:hover:not(:disabled) { box-shadow: 0 8px 24px rgba(220,38,38,0.5); }
-.topup-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Success */
-.topup-success {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  padding: 40px 20px; text-align: center;
-}
-
-/* List */
-.topup-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
-.topup-list-item {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 13px 14px; border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
-  cursor: pointer; transition: all 0.2s;
-  font-size: 13px; font-weight: 700;
-}
-.topup-list-item:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); }
-.topup-list-item.active { color: #fff; }
-
-/* Layout */
-.topup-layout {
-  display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start;
-}
-@media (max-width: 1000px) { .topup-layout { grid-template-columns: 1fr; } }
-`;
 
 export default function TopUpPage() {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
 
-  // Get tab from URL, default to pulsa
   const initTab = (params.get("tab") as TabId) || "pulsa";
-  
-  const [tab, setTab] = useState<TabId>(initTab);
-  const [pulsaMode, setPulsaMode] = useState<PulsaMode>("pulsa");
-  const [operator, setOperator] = useState("");
-  const [ewallet, setEwallet] = useState("");
-  const [nominal, setNominal] = useState<number | null>(null);
-  const [dataPkg, setDataPkg] = useState("");
-  const [phone, setPhone] = useState("");
-  const [meter, setMeter] = useState("");
-  const [ordered, setOrdered] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab]               = useState<TabId>(initTab);
+  const [pulsaMode, setPulsaMode]   = useState<PulsaMode>("pulsa");
+  const [operator, setOperator]     = useState("");
+  const [ewallet, setEwallet]       = useState("");
+  const [nominal, setNominal]       = useState<number | null>(null);
+  const [dataPkg, setDataPkg]       = useState("");
+  const [phone, setPhone]           = useState("");
+  const [meter, setMeter]           = useState("");
+  const [ordered, setOrdered]       = useState(false);
+  const [loading, setLoading]       = useState(false);
 
-  // Update URL when tab changes
+  // sync tab from URL
   useEffect(() => {
-    const urlTab = params.get("tab") as TabId;
-    if (urlTab && ["pulsa", "pln", "ewallet"].includes(urlTab)) {
-      setTab(urlTab);
-    }
+    const t = params.get("tab") as TabId;
+    if (t && ["pulsa","pln","ewallet"].includes(t)) setTab(t);
   }, [params]);
 
   const resetForm = () => {
-    setOperator("");
-    setEwallet("");
-    setNominal(null);
-    setDataPkg("");
-    setPhone("");
-    setMeter("");
-    setOrdered(false);
+    setOperator(""); setEwallet(""); setNominal(null);
+    setDataPkg(""); setPhone(""); setMeter(""); setOrdered(false);
   };
 
-  // Fix: Navigate with correct URL structure
-  const switchTab = (newTab: TabId) => {
+  const switchTab = (t: TabId) => {
+    setTab(t);
+    navigate(`/topup?tab=${t}`, { replace: true });
     resetForm();
-    setTab(newTab);
-    // Navigate with proper URL
-    window.history.pushState(null, "", `/topup?tab=${newTab}`);
   };
 
   const canOrder = () => {
     if (tab === "pulsa" && pulsaMode === "pulsa") return operator && nominal && phone.length >= 10;
-    if (tab === "pulsa" && pulsaMode === "data") return operator && dataPkg && phone.length >= 10;
-    if (tab === "pln") return nominal && meter.length >= 11;
-    if (tab === "ewallet") return ewallet && nominal && phone.length >= 10;
+    if (tab === "pulsa" && pulsaMode === "data")  return operator && dataPkg && phone.length >= 10;
+    if (tab === "pln")                            return nominal && meter.length >= 11;
+    if (tab === "ewallet")                        return ewallet && nominal && phone.length >= 10;
     return false;
   };
 
   const handleOrder = () => {
     if (!canOrder()) return;
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setOrdered(true);
-    }, 1800);
+    setTimeout(() => { setLoading(false); setOrdered(true); }, 1800);
   };
 
   const selectedPrice = () => {
@@ -285,383 +124,621 @@ export default function TopUpPage() {
     return 0;
   };
 
-  const TABS = [
-    { id: "pulsa" as TabId, label: "Pulsa & Data", icon: <Smartphone size={16} />, color: "#3B82F6" },
-    { id: "pln" as TabId, label: "Token PLN", icon: <Zap size={16} />, color: "#F59E0B" },
-    { id: "ewallet" as TabId, label: "E-Wallet", icon: <Wallet size={16} />, color: "#10B981" },
+  const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string }[] = [
+    { id: "pulsa",  label: "Pulsa & Data", icon: <Smartphone size={16} strokeWidth={1.8} />, color: "#3B82F6" },
+    { id: "pln",    label: "Token PLN",    icon: <Zap size={16} strokeWidth={1.8} />,        color: "#F59E0B" },
+    { id: "ewallet",label: "E-Wallet",     icon: <Wallet size={16} strokeWidth={1.8} />,     color: "#10B981" },
   ];
 
   const activeColor = TABS.find(t => t.id === tab)?.color ?? "#DC2626";
 
   return (
-    <div className="topup-root">
-      <style>{STYLES}</style>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700&family=Barlow:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-      {/* Hero */}
-      <div className="topup-hero">
-        <div className="topup-hero-bg" />
-        <div className="topup-hero-grid" />
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px", position: "relative", zIndex: 2 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 6, padding: "4px 12px", marginBottom: 14 }}>
-            <Zap size={12} color="#DC2626" fill="#DC2626" />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#DC2626", textTransform: "uppercase" }}>
-              Layanan Digital
-            </span>
+        .tp-root {
+          min-height: 100vh;
+          background: #080810;
+          font-family: 'Barlow', sans-serif;
+          color: #fff;
+          padding-bottom: 80px;
+        }
+
+        /* ── hero banner ── */
+        .tp-banner {
+          position: relative; overflow: hidden;
+          background: linear-gradient(160deg, #0d0d18 0%, #0a0a12 100%);
+          padding: 56px 24px 52px;
+          border-bottom: 1px solid rgba(255,255,255,.05);
+        }
+        .tp-banner::before {
+          content: '';
+          position: absolute; inset: 0; pointer-events: none;
+          background-image: repeating-linear-gradient(58deg, transparent 0 50px, rgba(220,40,10,.018) 50px 51px);
+        }
+        .tp-banner-orb {
+          position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none;
+        }
+
+        /* ── inner ── */
+        .tp-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+        /* ── tabs ── */
+        .tp-tabs {
+          display: flex; gap: 8px; flex-wrap: wrap;
+          background: rgba(255,255,255,.04);
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 14px; padding: 6px;
+          margin-bottom: 36px;
+        }
+        .tp-tab {
+          display: flex; align-items: center; gap: 8px;
+          padding: 11px 22px; border-radius: 9px;
+          font-size: 14px; font-weight: 700; letter-spacing: .04em;
+          border: none; cursor: pointer; transition: all .22s ease;
+          background: transparent; color: rgba(255,255,255,.4);
+          font-family: 'Barlow', sans-serif;
+          flex: 1; justify-content: center;
+        }
+        .tp-tab.active { color: #fff; }
+        .tp-tab:not(.active):hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.7); }
+
+        /* ── 2-col layout ── */
+        .tp-layout {
+          display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start;
+        }
+        @media (max-width: 900px) { .tp-layout { grid-template-columns: 1fr; } }
+
+        /* ── card ── */
+        .tp-card {
+          background: rgba(255,255,255,.03);
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 18px; padding: 28px;
+        }
+        .tp-card-title {
+          font-family: 'Rajdhani', sans-serif;
+          font-size: 18px; font-weight: 700; letter-spacing: .04em;
+          color: rgba(255,255,255,.9); margin-bottom: 22px;
+        }
+
+        /* ── section label ── */
+        .tp-label {
+          font-size: 11px; font-weight: 700; letter-spacing: .1em;
+          text-transform: uppercase; color: rgba(255,255,255,.3);
+          margin-bottom: 10px;
+        }
+
+        /* ── operator / ewallet grid ── */
+        .tp-op-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
+        @media (max-width: 500px) { .tp-op-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .tp-op-btn {
+          display: flex; flex-direction: column; align-items: center; gap: 6px;
+          padding: 14px 8px; border-radius: 10px;
+          border: 1px solid rgba(255,255,255,.08);
+          background: rgba(255,255,255,.03);
+          cursor: pointer; transition: all .2s ease; color: rgba(255,255,255,.6);
+          font-size: 12px; font-weight: 600; letter-spacing: .03em;
+          font-family: 'Barlow', sans-serif;
+        }
+        .tp-op-btn.active { color: #fff; }
+        .tp-op-btn:not(.active):hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
+        .tp-op-logo { font-size: 22px; line-height: 1; }
+
+        /* ── sub-mode toggle ── */
+        .tp-mode-toggle {
+          display: flex; gap: 6px; margin-bottom: 22px;
+          background: rgba(255,255,255,.04); border-radius: 9px; padding: 4px;
+          border: 1px solid rgba(255,255,255,.06);
+        }
+        .tp-mode-btn {
+          flex: 1; padding: 8px; border-radius: 6px;
+          font-size: 13px; font-weight: 700; letter-spacing: .04em;
+          border: none; cursor: pointer; transition: all .2s ease;
+          background: transparent; color: rgba(255,255,255,.4);
+          font-family: 'Barlow', sans-serif;
+        }
+        .tp-mode-btn.active { background: rgba(59,130,246,.2); color: #60A5FA; border: 1px solid rgba(59,130,246,.3); }
+
+        /* ── nominal grid ── */
+        .tp-nom-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
+        @media (max-width: 500px) { .tp-nom-grid { grid-template-columns: repeat(2, 1fr); } }
+
+        .tp-nom-btn {
+          display: flex; flex-direction: column; align-items: center; gap: 3px;
+          padding: 12px 6px; border-radius: 10px;
+          border: 1px solid rgba(255,255,255,.08);
+          background: rgba(255,255,255,.03);
+          cursor: pointer; transition: all .2s ease;
+          font-family: 'Barlow', sans-serif; text-align: center;
+          position: relative;
+        }
+        .tp-nom-btn.active { color: #fff; }
+        .tp-nom-btn:not(.active):hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
+        .tp-nom-val { font-size: 13px; font-weight: 700; }
+        .tp-nom-price { font-size: 10px; color: rgba(255,255,255,.35); font-weight: 500; }
+        .tp-nom-tag {
+          position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+          font-size: 9px; font-weight: 700; letter-spacing: .06em;
+          padding: 2px 8px; border-radius: 4px; white-space: nowrap;
+        }
+
+        /* data package list */
+        .tp-pkg-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+        .tp-pkg-btn {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 13px 16px; border-radius: 10px;
+          border: 1px solid rgba(255,255,255,.08);
+          background: rgba(255,255,255,.03);
+          cursor: pointer; transition: all .2s ease;
+          font-family: 'Barlow', sans-serif;
+        }
+        .tp-pkg-btn.active { color: #fff; }
+        .tp-pkg-btn:not(.active):hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
+        .tp-pkg-name { font-size: 13px; font-weight: 700; }
+        .tp-pkg-price { font-size: 13px; font-weight: 700; }
+        .tp-pkg-tag {
+          font-size: 9px; font-weight: 700; letter-spacing: .06em;
+          padding: 2px 8px; border-radius: 4px; margin-left: 8px;
+        }
+
+        /* ── input ── */
+        .tp-input-wrap { position: relative; margin-bottom: 20px; }
+        .tp-input {
+          width: 100%; padding: 13px 16px; border-radius: 10px;
+          background: rgba(255,255,255,.05);
+          border: 1px solid rgba(255,255,255,.1);
+          color: #fff; font-size: 14px; font-weight: 500;
+          font-family: 'Barlow', sans-serif; outline: none;
+          transition: border-color .2s, background .2s;
+        }
+        .tp-input::placeholder { color: rgba(255,255,255,.25); }
+        .tp-input:focus { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.07); }
+
+        /* ── order summary card ── */
+        .tp-summary {
+          background: rgba(255,255,255,.03);
+          border: 1px solid rgba(255,255,255,.07);
+          border-radius: 18px; padding: 24px;
+          position: sticky; top: 88px;
+        }
+        .tp-sum-row {
+          display: flex; justify-content: space-between; align-items: center;
+          font-size: 13px; color: rgba(255,255,255,.5); margin-bottom: 10px;
+        }
+        .tp-sum-row.total {
+          font-size: 15px; font-weight: 700; color: #fff;
+          padding-top: 12px; border-top: 1px solid rgba(255,255,255,.07); margin-top: 4px;
+        }
+        .tp-sum-val { font-weight: 700; color: rgba(255,255,255,.85); }
+
+        /* ── CTA button ── */
+        .tp-cta {
+          width: 100%; padding: 15px; border-radius: 11px;
+          border: none; cursor: pointer;
+          font-family: 'Rajdhani', sans-serif; font-size: 17px; font-weight: 700; letter-spacing: .06em;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          transition: all .22s ease; margin-top: 18px;
+          position: relative; overflow: hidden;
+        }
+        .tp-cta:disabled { opacity: .45; cursor: not-allowed; }
+        .tp-cta:not(:disabled):hover { transform: translateY(-1px); }
+        .tp-cta::after {
+          content:''; position:absolute; top:0; left:-60%; width:40%; height:100%;
+          background:linear-gradient(90deg,transparent,rgba(255,255,255,.18),transparent);
+          transform:skewX(-18deg); transition:left .45s;
+        }
+        .tp-cta:not(:disabled):hover::after { left:130%; }
+
+        /* ── success screen ── */
+        .tp-success {
+          display: flex; flex-direction: column; align-items: center; gap: 12px;
+          padding: 40px 20px; text-align: center;
+        }
+
+        /* ── spinner ── */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .tp-spinner {
+          width: 20px; height: 20px; border-radius: 50%;
+          border: 2px solid rgba(255,255,255,.3);
+          border-top-color: #fff;
+          animation: spin .7s linear infinite;
+        }
+
+        /* ── trust pills ── */
+        .tp-trust { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        .tp-trust-pill {
+          display: flex; align-items: center; gap: 5px;
+          padding: 5px 12px; border-radius: 100px;
+          background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.07);
+          font-size: 11px; font-weight: 600; color: rgba(255,255,255,.35); letter-spacing: .05em;
+        }
+      `}</style>
+
+      <div className="tp-root">
+
+        {/* ── Banner ── */}
+        <div className="tp-banner">
+          <div className="tp-banner-orb" style={{ width:500,height:500,top:-100,right:-100,background:"rgba(220,38,38,.06)" }} />
+          <div className="tp-banner-orb" style={{ width:300,height:300,bottom:-80,left:-50,background:"rgba(59,130,246,.05)" }} />
+          <div style={{ maxWidth:1100, margin:"0 auto", position:"relative" }}>
+            <div style={{
+              display:"inline-flex", alignItems:"center", gap:7,
+              background:"rgba(220,38,38,.1)", border:"1px solid rgba(220,38,38,.3)",
+              borderRadius:6, padding:"4px 12px", marginBottom:14,
+            }}>
+              <Zap size={11} color="#DC2626" fill="#DC2626" />
+              <span style={{ fontSize:11, fontWeight:700, letterSpacing:".12em", color:"#DC2626", textTransform:"uppercase" }}>
+                Layanan Digital
+              </span>
+            </div>
+            <h1 style={{
+              fontFamily:"'Rajdhani',sans-serif", fontSize:"clamp(28px,5vw,48px)",
+              fontWeight:700, lineHeight:1.05, letterSpacing:"-.01em", marginBottom:10,
+            }}>
+              Top Up <span style={{ color:"#DC2626" }}>Pulsa, Token &amp; E-Wallet</span>
+            </h1>
+            <p style={{ fontSize:14, color:"rgba(255,255,255,.4)", maxWidth:520, lineHeight:1.65, marginBottom:24 }}>
+              Proses instan, harga termurah, tersedia 24 jam. Pilih layanan yang kamu butuhkan.
+            </p>
+            <div className="tp-trust">
+              {["⚡ Proses < 1 Menit","🔒 Transaksi Aman","💳 Semua Metode Bayar","⭐ 4.9 / 5 Rating"].map(t=>(
+                <div key={t} className="tp-trust-pill">{t}</div>
+              ))}
+            </div>
           </div>
-          <h1 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: "clamp(28px,5vw,48px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.01em", marginBottom: 10 }}>
-            Top Up <span style={{ color: "#DC2626" }}>Pulsa, Token & E-Wallet</span>
-          </h1>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", maxWidth: 520, lineHeight: 1.65 }}>
-            Proses instan, harga termurah, tersedia 24 jam. Pilih layanan yang kamu butuhkan.
-          </p>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "36px 24px 80px" }}>
-
-        {/* Tabs */}
-        <div className="topup-tabs">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              className={`topup-tab ${tab === t.id ? "active" : ""}`}
-              style={tab === t.id ? { background: `${t.color}20`, border: `1px solid ${t.color}40`, color: t.color } : {}}
-              onClick={() => switchTab(t.id)}
-            >
-              {t.icon} {t.label}
-            </button>
-          ))}
         </div>
 
-        {/* Layout */}
-        <div className="topup-layout">
+        {/* ── Main content ── */}
+        <div className="tp-inner" style={{ marginTop:36 }}>
 
-          {/* LEFT: Form */}
-          <div>
-
-            {/* PULSA & DATA */}
-            {tab === "pulsa" && (
-              <div className="topup-card">
-                <div className="topup-card-title">Pulsa & Paket Data</div>
-
-                {/* Mode toggle */}
-                <div className="topup-toggle">
-                  <button
-                    className={`topup-toggle-btn ${pulsaMode === "pulsa" ? "active" : ""}`}
-                    onClick={() => { setPulsaMode("pulsa"); setDataPkg(""); setNominal(null); }}
-                  >
-                    📶 Pulsa
-                  </button>
-                  <button
-                    className={`topup-toggle-btn ${pulsaMode === "data" ? "active" : ""}`}
-                    onClick={() => { setPulsaMode("data"); setNominal(null); }}
-                  >
-                    📡 Paket Data
-                  </button>
-                </div>
-
-                {/* Operator */}
-                <div className="topup-label">Pilih Operator</div>
-                <div className="topup-grid">
-                  {OPERATORS.map(op => (
-                    <button
-                      key={op.id}
-                      className={`topup-btn ${operator === op.id ? "active" : ""}`}
-                      style={operator === op.id ? { borderColor: `${op.color}60`, background: `${op.color}15`, color: "#fff" } : {}}
-                      onClick={() => { setOperator(op.id); setNominal(null); setDataPkg(""); }}
-                    >
-                      <span className="topup-logo">{op.logo}</span>
-                      {op.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Nominal / Package */}
-                {pulsaMode === "pulsa" ? (
-                  <>
-                    <div className="topup-label">Pilih Nominal</div>
-                    <div className="topup-grid">
-                      {PULSA_NOMINAL.map(n => (
-                        <button
-                          key={n.val}
-                          className={`topup-btn ${nominal === n.val ? "active" : ""}`}
-                          style={nominal === n.val ? { borderColor: `${activeColor}60`, background: `${activeColor}15` } : {}}
-                          onClick={() => setNominal(n.val)}
-                        >
-                          <span>{n.label}</span>
-                          <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{fmtRp(n.price)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="topup-label">Pilih Paket Data</div>
-                    <div className="topup-list">
-                      {DATA_PACKAGES.map(pkg => (
-                        <button
-                          key={pkg.id}
-                          className={`topup-list-item ${dataPkg === pkg.id ? "active" : ""}`}
-                          style={dataPkg === pkg.id ? { borderColor: `${activeColor}60`, background: `${activeColor}15` } : {}}
-                          onClick={() => setDataPkg(pkg.id)}
-                        >
-                          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {pkg.label}
-                            {pkg.tag && (
-                              <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: `${activeColor}20`, color: activeColor }}>
-                                {pkg.tag}
-                              </span>
-                            )}
-                          </span>
-                          <span style={{ color: activeColor }}>{fmtRp(pkg.price)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Phone */}
-                <div className="topup-label">Nomor HP</div>
-                <input
-                  className="topup-input"
-                  type="tel"
-                  placeholder="Contoh: 08123456789"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
-                  maxLength={14}
-                />
-              </div>
-            )}
-
-            {/* TOKEN PLN */}
-            {tab === "pln" && (
-              <div className="topup-card">
-                <div className="topup-card-title">Token Listrik PLN</div>
-
-                {/* Meter */}
-                <div className="topup-label">Nomor Meter / ID Pelanggan</div>
-                <input
-                  className="topup-input"
-                  type="text"
-                  placeholder="Contoh: 12345678910"
-                  value={meter}
-                  onChange={e => setMeter(e.target.value.replace(/\D/g, ""))}
-                  maxLength={13}
-                />
-
-                {/* Nominal */}
-                <div className="topup-label">Pilih Nominal Token</div>
-                <div className="topup-grid">
-                  {PLN_NOMINAL.map(n => (
-                    <button
-                      key={n.val}
-                      className={`topup-btn ${nominal === n.val ? "active" : ""}`}
-                      style={nominal === n.val ? { borderColor: "rgba(245,158,11,0.6)", background: "rgba(245,158,11,0.15)" } : {}}
-                      onClick={() => setNominal(n.val)}
-                    >
-                      <span style={{ color: nominal === n.val ? "#F59E0B" : "rgba(255,255,255,0.5)" }}>{fmtRp(n.val)}</span>
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{n.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Info */}
-                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", fontSize: 12, color: "rgba(245,158,11,0.8)", lineHeight: 1.6 }}>
-                  💡 Token akan dikirim ke nomor HP yang terdaftar di PLN dan ditampilkan di layar ini setelah pembayaran berhasil.
-                </div>
-              </div>
-            )}
-
-            {/* E-WALLET */}
-            {tab === "ewallet" && (
-              <div className="topup-card">
-                <div className="topup-card-title">Top Up E-Wallet</div>
-
-                {/* E-wallet */}
-                <div className="topup-label">Pilih E-Wallet</div>
-                <div className="topup-grid">
-                  {EWALLETS.map(ew => (
-                    <button
-                      key={ew.id}
-                      className={`topup-btn ${ewallet === ew.id ? "active" : ""}`}
-                      style={ewallet === ew.id ? { borderColor: `${ew.color}60`, background: `${ew.color}15`, color: "#fff" } : {}}
-                      onClick={() => { setEwallet(ew.id); setNominal(null); }}
-                    >
-                      <span className="topup-logo">{ew.logo}</span>
-                      {ew.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Nominal */}
-                <div className="topup-label">Pilih Nominal</div>
-                <div className="topup-grid">
-                  {EWALLET_NOMINAL.map(n => (
-                    <button
-                      key={n.val}
-                      className={`topup-btn ${nominal === n.val ? "active" : ""}`}
-                      style={nominal === n.val ? { borderColor: `${activeColor}60`, background: `${activeColor}15` } : {}}
-                      onClick={() => setNominal(n.val)}
-                    >
-                      <span style={{ color: nominal === n.val ? activeColor : "rgba(255,255,255,0.5)" }}>{fmtRp(n.val)}</span>
-                      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{fmtRp(n.price)}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Phone */}
-                <div className="topup-label">Nomor HP / Akun E-Wallet</div>
-                <input
-                  className="topup-input"
-                  type="tel"
-                  placeholder="Contoh: 08123456789"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/\D/g, ""))}
-                  maxLength={14}
-                />
-              </div>
-            )}
+          {/* Tabs */}
+          <div className="tp-tabs">
+            {TABS.map(t => (
+              <button
+                key={t.id}
+                className={`tp-tab ${tab === t.id ? "active" : ""}`}
+                style={tab === t.id ? { background:`${t.color}20`, border:`1px solid ${t.color}40`, color:t.color } : {}}
+                onClick={() => switchTab(t.id)}
+              >
+                {t.icon} {t.label}
+              </button>
+            ))}
           </div>
 
-          {/* RIGHT: Summary */}
-          <div>
-            {ordered ? (
-              <div className="topup-summary">
-                <div className="topup-success">
-                  <CheckCircle2 size={56} color="#10B981" />
-                  <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 22, fontWeight: 700, color: "#10B981" }}>
-                    Pesanan Berhasil!
-                  </div>
-                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65 }}>
-                    Transaksi sedang diproses. Token / saldo akan masuk dalam beberapa detik.
-                  </p>
-                  <button
-                    className="topup-btn-primary"
-                    style={{ background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.35)", color: "#10B981", marginTop: 8 }}
-                    onClick={resetForm}
-                  >
-                    Transaksi Baru
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="topup-summary">
-                <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 17, fontWeight: 700, marginBottom: 20, color: "rgba(255,255,255,0.9)" }}>
-                  Ringkasan Pesanan
-                </div>
+          {/* Layout */}
+          <div className="tp-layout">
 
-                {/* Summary rows */}
-                {tab === "pulsa" && operator && (
-                  <div className="topup-sum-row">
-                    <span>Operator</span>
-                    <span className="topup-sum-val">{OPERATORS.find(o => o.id === operator)?.label}</span>
-                  </div>
-                )}
-                {tab === "pulsa" && pulsaMode === "pulsa" && nominal && (
-                  <div className="topup-sum-row">
-                    <span>Nominal</span>
-                    <span className="topup-sum-val">{fmtRp(nominal)}</span>
-                  </div>
-                )}
-                {tab === "pulsa" && pulsaMode === "data" && dataPkg && (
-                  <div className="topup-sum-row">
-                    <span>Paket</span>
-                    <span className="topup-sum-val">{DATA_PACKAGES.find(d => d.id === dataPkg)?.label}</span>
-                  </div>
-                )}
-                {tab === "pln" && meter && (
-                  <div className="topup-sum-row">
-                    <span>No. Meter</span>
-                    <span className="topup-sum-val">{meter}</span>
-                  </div>
-                )}
-                {tab === "pln" && nominal && (
-                  <div className="topup-sum-row">
-                    <span>Token</span>
-                    <span className="topup-sum-val">{fmtRp(nominal)}</span>
-                  </div>
-                )}
-                {tab === "ewallet" && ewallet && (
-                  <div className="topup-sum-row">
-                    <span>E-Wallet</span>
-                    <span className="topup-sum-val">{EWALLETS.find(e => e.id === ewallet)?.label}</span>
-                  </div>
-                )}
-                {tab === "ewallet" && nominal && (
-                  <div className="topup-sum-row">
-                    <span>Nominal</span>
-                    <span className="topup-sum-val">{fmtRp(nominal)}</span>
-                  </div>
-                )}
-                {(phone || meter) && (
-                  <div className="topup-sum-row">
-                    <span>{tab === "pln" ? "No. Meter" : "No. HP"}</span>
-                    <span className="topup-sum-val">{tab === "pln" ? meter : phone}</span>
-                  </div>
-                )}
+            {/* ── LEFT: form ── */}
+            <div>
 
-                {/* Total */}
-                {selectedPrice() > 0 && (
-                  <>
-                    <div className="topup-sum-row">
-                      <span>Biaya Admin</span>
-                      <span className="topup-sum-val" style={{ color: "rgba(255,255,255,0.4)" }}>Gratis</span>
-                    </div>
-                    <div className="topup-sum-row total">
-                      <span>Total Bayar</span>
-                      <span style={{ color: activeColor, fontFamily: "'Rajdhani',sans-serif", fontSize: 18 }}>
-                        {fmtRp(selectedPrice())}
-                      </span>
-                    </div>
-                  </>
-                )}
+              {/* ══ PULSA & DATA ══ */}
+              {tab === "pulsa" && (
+                <div className="tp-card">
+                  <div className="tp-card-title">Pulsa &amp; Paket Data</div>
 
-                {!selectedPrice() && (
-                  <div style={{ textAlign: "center", padding: "28px 0", fontSize: 13, color: "rgba(255,255,255,0.2)" }}>
-                    Pilih layanan & nominal<br />untuk melihat ringkasan
+                  {/* sub-mode */}
+                  <div className="tp-mode-toggle">
+                    <button className={`tp-mode-btn ${pulsaMode==="pulsa"?"active":""}`} onClick={()=>setPulsaMode("pulsa")}>📶 Pulsa</button>
+                    <button className={`tp-mode-btn ${pulsaMode==="data"?"active":""}`}  onClick={()=>setPulsaMode("data")}>📡 Paket Data</button>
                   </div>
-                )}
 
-                {/* CTA */}
-                <button
-                  className="topup-btn-primary"
-                  disabled={!canOrder() || loading}
-                  style={{
-                    background: canOrder() ? `linear-gradient(135deg, ${activeColor}cc, ${activeColor}88)` : "rgba(255,255,255,0.06)",
-                    border: canOrder() ? `1px solid ${activeColor}60` : "1px solid rgba(255,255,255,0.08)",
-                    color: canOrder() ? "#fff" : "rgba(255,255,255,0.25)",
-                  }}
-                  onClick={handleOrder}
-                >
-                  {loading ? (
+                  {/* Operator */}
+                  <div className="tp-label">Pilih Operator</div>
+                  <div className="tp-op-grid">
+                    {OPERATORS.map(op => (
+                      <button
+                        key={op.id}
+                        className={`tp-op-btn ${operator===op.id?"active":""}`}
+                        style={operator===op.id ? { borderColor:`${op.color}60`, background:`${op.color}15`, color:"#fff" } : {}}
+                        onClick={() => { setOperator(op.id); setNominal(null); setDataPkg(""); }}
+                      >
+                        <span className="tp-op-logo">{op.logo}</span>
+                        {op.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Nominal / Package */}
+                  {pulsaMode === "pulsa" ? (
                     <>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", animation: "spin 0.7s linear infinite" }} />
-                      Memproses...
+                      <div className="tp-label">Pilih Nominal</div>
+                      <div className="tp-nom-grid">
+                        {PULSA_NOMINAL.map(n => (
+                          <button
+                            key={n.val}
+                            className={`tp-nom-btn ${nominal===n.val?"active":""}`}
+                            style={nominal===n.val ? { borderColor:`${activeColor}60`, background:`${activeColor}15` } : {}}
+                            onClick={() => setNominal(n.val)}
+                          >
+                            <span className="tp-nom-val">{n.label}</span>
+                            <span className="tp-nom-price">{fmtRp(n.price)}</span>
+                          </button>
+                        ))}
+                      </div>
                     </>
                   ) : (
                     <>
-                      Bayar Sekarang <ArrowRight size={16} />
+                      <div className="tp-label">Pilih Paket Data</div>
+                      <div className="tp-pkg-list">
+                        {DATA_PACKAGES.map(pkg => (
+                          <button
+                            key={pkg.id}
+                            className={`tp-pkg-btn ${dataPkg===pkg.id?"active":""}`}
+                            style={dataPkg===pkg.id ? { borderColor:`${activeColor}60`, background:`${activeColor}15` } : {}}
+                            onClick={() => setDataPkg(pkg.id)}
+                          >
+                            <span style={{ display:"flex", alignItems:"center", gap:6 }}>
+                              <span className="tp-pkg-name">{pkg.label}</span>
+                              {pkg.tag && (
+                                <span className="tp-pkg-tag" style={{ background:`${activeColor}20`, color:activeColor, border:`1px solid ${activeColor}40` }}>
+                                  {pkg.tag}
+                                </span>
+                              )}
+                            </span>
+                            <span className="tp-pkg-price" style={dataPkg===pkg.id?{color:activeColor}:{color:"rgba(255,255,255,.5)"}}>
+                              {fmtRp(pkg.price)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
                     </>
                   )}
-                </button>
 
-                {/* Trust */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 18 }}>
-                  {["🔒 Transaksi terenkripsi SSL", "⚡ Proses otomatis real-time", "💳 Bayar pakai semua metode"].map(t => (
-                    <div key={t} style={{ fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-                      {t}
-                    </div>
-                  ))}
+                  {/* Phone */}
+                  <div className="tp-label">Nomor HP</div>
+                  <div className="tp-input-wrap">
+                    <input
+                      className="tp-input"
+                      type="tel"
+                      placeholder="Contoh: 08123456789"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g,""))}
+                      maxLength={14}
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+
+              {/* ══ TOKEN PLN ══ */}
+              {tab === "pln" && (
+                <div className="tp-card">
+                  <div className="tp-card-title">Token Listrik PLN</div>
+
+                  {/* Meter number */}
+                  <div className="tp-label">Nomor Meter / ID Pelanggan</div>
+                  <div className="tp-input-wrap">
+                    <input
+                      className="tp-input"
+                      type="text"
+                      placeholder="Contoh: 12345678910"
+                      value={meter}
+                      onChange={e => setMeter(e.target.value.replace(/\D/g,""))}
+                      maxLength={13}
+                      style={{ borderColor: meter.length >= 11 ? "rgba(245,158,11,.4)" : undefined }}
+                    />
+                  </div>
+
+                  {/* Nominal */}
+                  <div className="tp-label">Pilih Nominal Token</div>
+                  <div className="tp-nom-grid">
+                    {PLN_NOMINAL.map(n => (
+                      <button
+                        key={n.val}
+                        className={`tp-nom-btn ${nominal===n.val?"active":""}`}
+                        style={nominal===n.val ? { borderColor:"rgba(245,158,11,.6)", background:"rgba(245,158,11,.15)" } : {}}
+                        onClick={() => setNominal(n.val)}
+                      >
+                        <span className="tp-nom-val" style={nominal===n.val?{color:"#F59E0B"}:{}}>{fmtRp(n.val)}</span>
+                        <span className="tp-nom-price">{n.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* info box */}
+                  <div style={{
+                    padding:"12px 14px", borderRadius:10, marginTop:4,
+                    background:"rgba(245,158,11,.07)", border:"1px solid rgba(245,158,11,.2)",
+                    fontSize:12, color:"rgba(245,158,11,.8)", lineHeight:1.6,
+                  }}>
+                    💡 Token akan dikirim ke nomor HP yang terdaftar di PLN dan ditampilkan di layar ini setelah pembayaran berhasil.
+                  </div>
+                </div>
+              )}
+
+              {/* ══ E-WALLET ══ */}
+              {tab === "ewallet" && (
+                <div className="tp-card">
+                  <div className="tp-card-title">Top Up E-Wallet</div>
+
+                  {/* E-wallet selection */}
+                  <div className="tp-label">Pilih E-Wallet</div>
+                  <div className="tp-op-grid">
+                    {EWALLETS.map(ew => (
+                      <button
+                        key={ew.id}
+                        className={`tp-op-btn ${ewallet===ew.id?"active":""}`}
+                        style={ewallet===ew.id ? { borderColor:`${ew.color}60`, background:`${ew.color}15`, color:"#fff" } : {}}
+                        onClick={() => { setEwallet(ew.id); setNominal(null); }}
+                      >
+                        <span className="tp-op-logo">{ew.logo}</span>
+                        {ew.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Nominal */}
+                  <div className="tp-label">Pilih Nominal</div>
+                  <div className="tp-nom-grid">
+                    {EWALLET_NOMINAL.map(n => (
+                      <button
+                        key={n.val}
+                        className={`tp-nom-btn ${nominal===n.val?"active":""}`}
+                        style={nominal===n.val ? { borderColor:`${activeColor}60`, background:`${activeColor}15` } : {}}
+                        onClick={() => setNominal(n.val)}
+                      >
+                        <span className="tp-nom-val" style={nominal===n.val?{color:activeColor}:{}}>{fmtRp(n.val)}</span>
+                        <span className="tp-nom-price">{fmtRp(n.price)}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Phone / account number */}
+                  <div className="tp-label">Nomor HP / Akun E-Wallet</div>
+                  <div className="tp-input-wrap">
+                    <input
+                      className="tp-input"
+                      type="tel"
+                      placeholder="Contoh: 08123456789"
+                      value={phone}
+                      onChange={e => setPhone(e.target.value.replace(/\D/g,""))}
+                      maxLength={14}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── RIGHT: summary ── */}
+            <div>
+              {ordered ? (
+                <div className="tp-summary">
+                  <div className="tp-success">
+                    <CheckCircle2 size={56} color="#10B981" />
+                    <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color:"#10B981" }}>
+                      Pesanan Berhasil!
+                    </div>
+                    <p style={{ fontSize:13, color:"rgba(255,255,255,.45)", lineHeight:1.65 }}>
+                      Transaksi sedang diproses. Token / saldo akan masuk dalam beberapa detik.
+                    </p>
+                    <button
+                      className="tp-cta"
+                      style={{ background:"rgba(16,185,129,.15)", border:"1px solid rgba(16,185,129,.35)", color:"#10B981", marginTop:8 }}
+                      onClick={resetForm}
+                    >
+                      Transaksi Baru
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="tp-summary">
+                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, marginBottom:20, color:"rgba(255,255,255,.9)" }}>
+                    Ringkasan Pesanan
+                  </div>
+
+                  {/* Summary rows */}
+                  {tab === "pulsa" && operator && (
+                    <div className="tp-sum-row">
+                      <span>Operator</span>
+                      <span className="tp-sum-val">{OPERATORS.find(o=>o.id===operator)?.label}</span>
+                    </div>
+                  )}
+                  {tab === "pulsa" && pulsaMode === "pulsa" && nominal && (
+                    <div className="tp-sum-row">
+                      <span>Nominal</span>
+                      <span className="tp-sum-val">{fmtRp(nominal)}</span>
+                    </div>
+                  )}
+                  {tab === "pulsa" && pulsaMode === "data" && dataPkg && (
+                    <div className="tp-sum-row">
+                      <span>Paket</span>
+                      <span className="tp-sum-val">{DATA_PACKAGES.find(d=>d.id===dataPkg)?.label}</span>
+                    </div>
+                  )}
+                  {tab === "pln" && meter && (
+                    <div className="tp-sum-row">
+                      <span>No. Meter</span>
+                      <span className="tp-sum-val">{meter}</span>
+                    </div>
+                  )}
+                  {tab === "pln" && nominal && (
+                    <div className="tp-sum-row">
+                      <span>Token</span>
+                      <span className="tp-sum-val">{fmtRp(nominal)}</span>
+                    </div>
+                  )}
+                  {tab === "ewallet" && ewallet && (
+                    <div className="tp-sum-row">
+                      <span>E-Wallet</span>
+                      <span className="tp-sum-val">{EWALLETS.find(e=>e.id===ewallet)?.label}</span>
+                    </div>
+                  )}
+                  {tab === "ewallet" && nominal && (
+                    <div className="tp-sum-row">
+                      <span>Nominal</span>
+                      <span className="tp-sum-val">{fmtRp(nominal)}</span>
+                    </div>
+                  )}
+                  {(phone || meter) && (
+                    <div className="tp-sum-row">
+                      <span>{tab === "pln" ? "No. Meter" : "No. HP"}</span>
+                      <span className="tp-sum-val">{tab === "pln" ? meter : phone}</span>
+                    </div>
+                  )}
+
+                  {/* Divider + total */}
+                  {selectedPrice() > 0 && (
+                    <>
+                      <div className="tp-sum-row">
+                        <span>Biaya Admin</span>
+                        <span className="tp-sum-val" style={{ color:"rgba(255,255,255,.4)" }}>Gratis</span>
+                      </div>
+                      <div className="tp-sum-row total">
+                        <span>Total Bayar</span>
+                        <span style={{ color: activeColor, fontFamily:"'Rajdhani',sans-serif", fontSize:18 }}>
+                          {fmtRp(selectedPrice())}
+                        </span>
+                      </div>
+                    </>
+                  )}
+
+                  {!selectedPrice() && (
+                    <div style={{
+                      textAlign:"center", padding:"28px 0",
+                      fontSize:13, color:"rgba(255,255,255,.2)",
+                    }}>
+                      Pilih layanan &amp; nominal<br/>untuk melihat ringkasan
+                    </div>
+                  )}
+
+                  {/* CTA */}
+                  <button
+                    className="tp-cta"
+                    disabled={!canOrder() || loading}
+                    style={{
+                      background: canOrder()
+                        ? `linear-gradient(135deg, ${activeColor}cc, ${activeColor}88)`
+                        : "rgba(255,255,255,.06)",
+                      border: canOrder()
+                        ? `1px solid ${activeColor}60`
+                        : "1px solid rgba(255,255,255,.08)",
+                      color: canOrder() ? "#fff" : "rgba(255,255,255,.25)",
+                    }}
+                    onClick={handleOrder}
+                  >
+                    {loading ? (
+                      <><div className="tp-spinner" /> Memproses...</>
+                    ) : (
+                      <>Bayar Sekarang <ArrowRight size={16} /></>
+                    )}
+                  </button>
+
+                  {/* trust mini */}
+                  <div style={{ display:"flex", flexDirection:"column", gap:7, marginTop:18 }}>
+                    {["🔒 Transaksi terenkripsi SSL","⚡ Proses otomatis real-time","💳 Bayar pakai semua metode"].map(t => (
+                      <div key={t} style={{ fontSize:11, color:"rgba(255,255,255,.25)", display:"flex", alignItems:"center", gap:6 }}>
+                        {t}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
-    </div>
+    </>
   );
 }
