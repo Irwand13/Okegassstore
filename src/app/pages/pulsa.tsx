@@ -1,18 +1,54 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { Smartphone, Zap, Wallet, ChevronDown, CheckCircle2, ArrowRight, Search } from "lucide-react";
+import telkomselLogo from "../../img/telkomsel.png";
+import xlLogo from "../../img/xl.png";
+import indosatLogo from "../../img/indosat.png";
+import triLogo from "../../img/tri.png";
+import smartfrenLogo from "../../img/smartfren.png";
+import axisLogo from "../../img/axis.png";
 
 /* ─── Types ─── */
 type TabId = "pulsa" | "pln" | "ewallet";
 
 /* ─── Data ─── */
 const OPERATORS = [
-  { id: "telkomsel", label: "Telkomsel", color: "#EF4444", logo: "/img/Telkomsel.png" },
-  { id: "xl",        label: "XL Axiata", color: "#3B82F6", logo: "/img/xl.png" },
-  { id: "indosat",   label: "Indosat",   color: "#F59E0B", logo: "/img/indosat.png" },
-  { id: "tri",       label: "Tri",       color: "#8B5CF6", logo: "/img/tri.png" },
-  { id: "smartfren", label: "Smartfren", color: "#10B981", logo: "/img/smartfren.png" },
-  { id: "axis",      label: "Axis",      color: "#EC4899", logo: "/img/axis.png" },
+  {
+    id: "telkomsel",
+    label: "Telkomsel",
+    color: "#EF4444",
+    logo: telkomselLogo,
+  },
+  {
+    id: "xl",
+    label: "XL Axiata",
+    color: "#3B82F6",
+    logo: xlLogo,
+  },
+  {
+    id: "indosat",
+    label: "Indosat",
+    color: "#F59E0B",
+    logo: indosatLogo,
+  },
+  {
+    id: "tri",
+    label: "Tri",
+    color: "#8B5CF6",
+    logo: triLogo,
+  },
+  {
+    id: "smartfren",
+    label: "Smartfren",
+    color: "#10B981",
+    logo: smartfrenLogo,
+  },
+  {
+    id: "axis",
+    label: "Axis",
+    color: "#EC4899",
+    logo: axisLogo,
+  },
 ];
 
 const PULSA_NOMINAL = [
@@ -225,8 +261,12 @@ export default function TopUpPage() {
         }
         .tp-op-btn.active { color: #fff; }
         .tp-op-btn:not(.active):hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
-        .tp-op-logo { font-size: 22px; line-height: 1; }
-
+        .tp-op-logo {
+          width: 42px;
+          height: 42px;
+          object-fit: contain;
+          display: block;
+        }
         /* ── sub-mode toggle ── */
         .tp-mode-toggle {
           display: flex; gap: 6px; margin-bottom: 22px;
@@ -435,7 +475,11 @@ export default function TopUpPage() {
                         style={operator===op.id ? { borderColor:`${op.color}60`, background:`${op.color}15`, color:"#fff" } : {}}
                         onClick={() => { setOperator(op.id); setNominal(null); setDataPkg(""); }}
                       >
-                        <span className="tp-op-logo">{op.logo}</span>
+                        <img
+                          src={op.logo}
+                          alt={op.label}
+                          className="tp-op-logo"
+                        />
                         {op.label}
                       </button>
                     ))}
