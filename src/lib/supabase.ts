@@ -205,8 +205,7 @@ export const getListings = async (filters?: {
     .from('listings')
     .select(`
       *,
-      profiles:seller_id (username, avatar_url, is_verified_seller, rating_sum, total_reviews),
-      game_categories:game_id (name, icon, color)
+      game_categories (name, icon, color)
     `)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
@@ -218,6 +217,27 @@ export const getListings = async (filters?: {
   if (filters?.offset)    query = query.range(filters.offset, filters.offset + (filters.limit ?? 20) - 1)
 
   const { data, error } = await query
+  
+  // Fetch seller profiles separately to avoid RLS issues
+  if (data) {
+    const sellerIds = [...new Set(data.map((l: any) => l.seller_id))]
+    if (sellerIds.length > 0) {
+      const { data: sellers } = await supabase
+        .from('profiles')
+        .select('id, full_name, username, avatar_url, is_verified_seller, rating_sum, total_reviews')
+        .in('id', sellerIds)
+      
+      // Merge seller data into listings
+      return {
+        data: data.map((listing: any) => ({
+          ...listing,
+          profiles: sellers?.find(s => s.id === listing.seller_id)
+        })),
+        error
+      }
+    }
+  }
+  
   return { data, error }
 }
 

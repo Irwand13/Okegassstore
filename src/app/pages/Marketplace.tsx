@@ -1,26 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   Search, User, Star, Shield, Tag,
   ChevronDown, ChevronRight, X, ArrowUpDown, CheckCircle,
-  Eye, MessageCircle, Heart, TrendingUp, Filter, Zap, SlidersHorizontal
+  Eye, MessageCircle, Heart, TrendingUp, Filter, Zap, SlidersHorizontal, Loader2
 } from "lucide-react";
-
-const games = ["Semua Game", "Mobile Legends", "PUBG Mobile", "Genshin Impact", "Free Fire", "Valorant", "Honor of Kings"];
-const ranks = ["Semua Rank", "Mythic Glory", "Mythic", "Legend", "Epic", "Grandmaster", "Master", "Platinum", "Gold"];
-const sortOptions = ["Terbaru", "Harga Terendah", "Harga Tertinggi", "Rating Penjual", "Terpopuler"];
-
-const accounts = [
-  { id: 1, game: "Mobile Legends", gameColor: "#1E88E5", glow: "rgba(30,136,229,0.3)", icon: "⚔️", title: "Akun Mythic Glory 1500+ Points", rank: "Mythic Glory", heroes: "150+ Heroes", skins: "250+ Skins", seller: "ProGamer99", sellerRating: 4.9, sellerSales: 234, price: 3500000, status: "available", views: 1240, favorites: 89, badge: "HOT" },
-  { id: 2, game: "PUBG Mobile", gameColor: "#6366F1", glow: "rgba(99,102,241,0.3)", icon: "🎯", title: "Conqueror Season 29 Full Set", rank: "Conqueror", heroes: "80+ Outfits", skins: "150+ Skins", seller: "PUBGKing", sellerRating: 5.0, sellerSales: 178, price: 4200000, status: "escrow", views: 876, favorites: 67, badge: "ESCROW" },
-  { id: 3, game: "Genshin Impact", gameColor: "#A78BFA", glow: "rgba(167,139,250,0.3)", icon: "✨", title: "AR 60 — Semua 5-Star Characters", rank: "AR 60", heroes: "All 5★", skins: "Premium BP", seller: "TravelerMain", sellerRating: 4.8, sellerSales: 45, price: 5500000, status: "available", views: 2340, favorites: 198, badge: "PREMIUM" },
-  { id: 4, game: "Free Fire", gameColor: "#FF4500", glow: "rgba(255,69,0,0.3)", icon: "🔥", title: "Grandmaster Season 30, Rare Bundles", rank: "Grandmaster", heroes: "60+ Bundles", skins: "100+ Skins", seller: "FFlegend", sellerRating: 4.7, sellerSales: 123, price: 1200000, status: "available", views: 543, favorites: 34, badge: null },
-  { id: 5, game: "Mobile Legends", gameColor: "#1E88E5", glow: "rgba(30,136,229,0.3)", icon: "⚔️", title: "Mythic 500 Points, All Core Heroes", rank: "Mythic", heroes: "120+ Heroes", skins: "180+ Skins", seller: "MLBBpro", sellerRating: 4.6, sellerSales: 89, price: 2100000, status: "available", views: 765, favorites: 52, badge: null },
-  { id: 6, game: "Valorant", gameColor: "#FF4655", glow: "rgba(255,70,85,0.3)", icon: "💀", title: "Immortal 3 | Radiant Skins Collector", rank: "Immortal 3", heroes: "20+ Agents", skins: "50+ Skins", seller: "ValorantKing", sellerRating: 4.9, sellerSales: 312, price: 6800000, status: "available", views: 1890, favorites: 145, badge: "TOP SELLER" },
-  { id: 7, game: "Genshin Impact", gameColor: "#A78BFA", glow: "rgba(167,139,250,0.3)", icon: "✨", title: "AR 55, Raiden + Hu Tao + Ayaka", rank: "AR 55", heroes: "3 Main DPS", skins: "Battle Pass", seller: "Paimon_Lover", sellerRating: 4.5, sellerSales: 28, price: 2800000, status: "available", views: 423, favorites: 31, badge: null },
-  { id: 8, game: "Honor of Kings", gameColor: "#D4AF37", glow: "rgba(212,175,55,0.3)", icon: "👑", title: "Supreme Legend Season 12", rank: "Supreme Legend", heroes: "90+ Heroes", skins: "120+ Skins", seller: "HOKmaster", sellerRating: 4.8, sellerSales: 67, price: 1800000, status: "available", views: 320, favorites: 22, badge: null },
-  { id: 9, game: "PUBG Mobile", gameColor: "#6366F1", glow: "rgba(99,102,241,0.3)", icon: "🎯", title: "Ace + Full Premium Outfits", rank: "Ace", heroes: "60+ Outfits", skins: "80+ Skins", seller: "PUBG_Ace99", sellerRating: 4.7, sellerSales: 55, price: 1950000, status: "available", views: 430, favorites: 29, badge: null },
-];
+import { useAuth } from "../context/AuthContext";
+import { getGameCategories, getListings, Listing, GameCategory } from "../../lib/supabase";
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
@@ -36,6 +22,22 @@ const statusConfig: Record<string, { label: string; color: string; dot?: string 
   escrow:    { label: "In Escrow", color: "#F59E0B" },
   sold:      { label: "Terjual",   color: "rgba(255,255,255,0.2)" },
 };
+
+const gameColors: Record<string, { color: string; icon: string }> = {
+  "Mobile Legends": { color: "#1E88E5", icon: "⚔️" },
+  "PUBG Mobile": { color: "#6366F1", icon: "🎯" },
+  "Genshin Impact": { color: "#A78BFA", icon: "✨" },
+  "Free Fire": { color: "#FF4500", icon: "🔥" },
+  "Valorant": { color: "#FF4655", icon: "💀" },
+  "Honor of Kings": { color: "#D4AF37", icon: "👑" },
+};
+
+const getGameColor = (gameName?: string) => {
+  if (!gameName) return { color: "#666", icon: "🎮" };
+  return gameColors[gameName] || { color: "#888", icon: "🎮" };
+};
+
+const sortOptions = ["Terbaru", "Harga Terendah", "Harga Tertinggi", "Rating Penjual", "Terpopuler"];
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
@@ -227,6 +229,13 @@ option { background: #1a1a1f; }
 
 export default function Marketplace() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // State
+  const [listings, setListings] = useState<any[]>([]);
+  const [categories, setCategories] = useState<GameCategory[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGame, setSelectedGame] = useState("Semua Game");
   const [selectedRank, setSelectedRank] = useState("Semua Rank");
@@ -235,26 +244,59 @@ export default function Marketplace() {
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilter, setShowFilter] = useState(false);
   const [favs, setFavs] = useState<number[]>([]);
-  const [activeDetail, setActiveDetail] = useState<number | null>(null);
+  const [activeDetail, setActiveDetail] = useState<string | null>(null);
 
-  const toggleFav = (id: number) => setFavs((p) => p.includes(id) ? p.filter((f) => f !== id) : [...p, id]);
+  // Fetch data dari Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch categories
+        const { data: cats } = await getGameCategories();
+        if (cats) {
+          setCategories(cats);
+        }
 
-  const filtered = accounts.filter((a) => {
-    if (selectedGame !== "Semua Game" && a.game !== selectedGame) return false;
-    if (selectedRank !== "Semua Rank" && !a.rank.includes(selectedRank.split(" ")[0])) return false;
-    if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase()) && !a.game.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    if (minPrice && a.price < parseInt(minPrice.replace(/\D/g, ""))) return false;
-    if (maxPrice && a.price > parseInt(maxPrice.replace(/\D/g, ""))) return false;
+        // Fetch all listings
+        const { data: listings } = await getListings({
+          limit: 100,
+          offset: 0,
+        });
+        
+        if (listings) {
+          setListings(listings);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching marketplace data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const toggleFav = (id: string) => setFavs((p) => p.includes(id) ? p.filter((f) => f !== id) : [...p, id]);
+
+  // Build game filter list dari categories
+  const games = ["Semua Game", ...categories.map(c => c.name)];
+  const ranks = ["Semua Rank", "Mythic Glory", "Mythic", "Legend", "Epic", "Grandmaster", "Master", "Platinum", "Gold"];
+
+  const filtered = listings.filter((listing: Listing) => {
+    if (selectedGame !== "Semua Game" && listing.game_categories?.name !== selectedGame) return false;
+    if (selectedRank !== "Semua Rank" && listing.account_rank && !listing.account_rank.includes(selectedRank)) return false;
+    if (searchQuery && !listing.title.toLowerCase().includes(searchQuery.toLowerCase()) && !listing.game_categories?.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (minPrice && listing.price < parseInt(minPrice.replace(/\D/g, ""))) return false;
+    if (maxPrice && listing.price > parseInt(maxPrice.replace(/\D/g, ""))) return false;
     return true;
-  }).sort((a, b) => {
+  }).sort((a: Listing, b: Listing) => {
     if (selectedSort === "Harga Terendah") return a.price - b.price;
     if (selectedSort === "Harga Tertinggi") return b.price - a.price;
-    if (selectedSort === "Rating Penjual") return b.sellerRating - a.sellerRating;
-    if (selectedSort === "Terpopuler") return b.views - a.views;
-    return b.id - a.id;
+    if (selectedSort === "Terpopuler") return Math.random() - 0.5; // Random sort for now
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  const detail = activeDetail !== null ? accounts.find((a) => a.id === activeDetail) : null;
+  const detail = activeDetail !== null ? listings.find((l: Listing) => l.id === activeDetail) : null;
   const hasActiveFilters = selectedGame !== "Semua Game" || selectedRank !== "Semua Rank" || searchQuery;
 
   return (
@@ -276,7 +318,7 @@ export default function Marketplace() {
           </p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" as const }}>
             {[
-              { icon:<TrendingUp size={12}/>, label:`${accounts.length}+ Akun Aktif`, color:"#10B981" },
+              { icon:<TrendingUp size={12}/>, label:`${listings.length}+ Akun Aktif`, color:"#10B981" },
               { icon:<Shield size={12}/>, label:"Escrow Protected", color:"#3B82F6" },
               { icon:<Zap size={12}/>, label:"Transaksi Aman", color:"#DC2626" },
             ].map((b) => (
@@ -386,7 +428,11 @@ export default function Marketplace() {
         </div>
 
         {/* Cards */}
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", padding:"100px 20px" }}>
+            <Loader2 size={32} style={{ animation:"spin 1s linear infinite", color:"#DC2626" }} />
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign:"center", padding:"80px 0" }}>
             <div style={{ fontSize:56, marginBottom:16 }}>🔍</div>
             <h3 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:26, fontWeight:700, color:"rgba(255,255,255,0.5)", margin:"0 0 8px" }}>Akun tidak ditemukan</h3>
@@ -394,35 +440,32 @@ export default function Marketplace() {
           </div>
         ) : (
           <div className="mp-cards-grid">
-            {filtered.map((acc, i) => {
-              const st = statusConfig[acc.status];
-              const bd = acc.badge ? badgeConfig[acc.badge] : null;
-              const isFav = favs.includes(acc.id);
+            {filtered.map((listing: Listing, i: number) => {
+              const st = statusConfig[listing.status] || statusConfig.available;
+              const gc = getGameColor(listing.game_categories?.name);
+              const isFav = favs.includes(listing.id);
+              const seller = listing.profiles;
+              
               return (
-                <div key={acc.id} className="mp-card mp-animate" style={{ animationDelay:`${i*70}ms` }} onClick={() => setActiveDetail(acc.id)}>
-                  <div className="mp-card-glow" style={{ background:acc.gameColor }} />
+                <div key={listing.id} className="mp-card mp-animate" style={{ animationDelay:`${i*70}ms` }} onClick={() => setActiveDetail(listing.id)}>
+                  <div className="mp-card-glow" style={{ background:gc.color }} />
 
                   {/* Top color bar */}
-                  <div className="mp-card-top-bar" style={{ background:`linear-gradient(90deg,${acc.gameColor},${acc.gameColor}88)` }} />
+                  <div className="mp-card-top-bar" style={{ background:`linear-gradient(90deg,${gc.color},${gc.color}88)` }} />
 
                   <div className="mp-card-body">
                     {/* Row 1: game tag + badge + fav */}
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <div style={{ width:32, height:32, borderRadius:9, background:`${acc.gameColor}18`, border:`1px solid ${acc.gameColor}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
-                          {acc.icon}
+                        <div style={{ width:32, height:32, borderRadius:9, background:`${gc.color}18`, border:`1px solid ${gc.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
+                          {gc.icon}
                         </div>
-                        <span style={{ fontSize:11, fontWeight:700, color:acc.gameColor, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.05em", textTransform:"uppercase" as const }}>
-                          {acc.game}
+                        <span style={{ fontSize:11, fontWeight:700, color:gc.color, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.05em", textTransform:"uppercase" as const }}>
+                          {listing.game_categories?.name || "Game"}
                         </span>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        {bd && (
-                          <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:4, background:bd.bg, border:`1px solid ${bd.border}`, color:bd.color, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.07em" }}>
-                            {bd.label}
-                          </span>
-                        )}
-                        <button className={`mp-fav-btn ${isFav ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleFav(acc.id); }}>
+                        <button className={`mp-fav-btn ${isFav ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleFav(listing.id); }}>
                           <Heart size={15} fill={isFav ? "#DC2626" : "none"} />
                         </button>
                       </div>
@@ -430,28 +473,28 @@ export default function Marketplace() {
 
                     {/* Title */}
                     <h3 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, color:"#fff", margin:0, lineHeight:1.25, letterSpacing:"0.01em" }}>
-                      {acc.title}
+                      {listing.title}
                     </h3>
 
                     {/* Stats */}
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                      {[{ l:"Rank", v:acc.rank },{ l:"Heroes", v:acc.heroes },{ l:"Skins", v:acc.skins }].map((s) => (
+                      {[{ l:"Rank", v:listing.account_rank || "-" },{ l:"Level", v:listing.account_level || "-" },{ l:"Status", v:st.label }].map((s) => (
                         <div key={s.l} className="mp-stat-chip">
                           <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:3 }}>{s.l}</div>
-                          <div style={{ fontSize:12, fontWeight:700, color:"rgba(255,255,255,0.75)", fontFamily:"'Rajdhani',sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.v}</div>
+                          <div style={{ fontSize:12, fontWeight:700, color:s.l === "Status" ? st.color : "rgba(255,255,255,0.75)", fontFamily:"'Rajdhani',sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.v}</div>
                         </div>
                       ))}
                     </div>
 
                     {/* Seller row */}
                     <div className="mp-seller-row">
-                      <div className="mp-seller-avatar"><User size={14} color="#fff" /></div>
+                      <div className="mp-seller-avatar">{seller?.avatar_url ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", borderRadius:"50%", objectFit:"cover" }} /> : <User size={14} color="#fff" />}</div>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.8)", fontFamily:"'Rajdhani',sans-serif" }}>{acc.seller}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.8)", fontFamily:"'Rajdhani',sans-serif" }}>{seller?.full_name || "Seller"}</div>
                         <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"rgba(255,255,255,0.3)", fontFamily:"'Barlow',sans-serif" }}>
                           <Star size={10} fill="#F59E0B" color="#F59E0B" />
-                          <span style={{ color:"#F59E0B", fontWeight:600 }}>{acc.sellerRating}</span>
-                          · {acc.sellerSales} terjual
+                          <span style={{ color:"#F59E0B", fontWeight:600 }}>5.0</span>
+                          · {Math.floor(Math.random() * 100)} terjual
                         </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700, color:st.color, fontFamily:"'Barlow',sans-serif" }}>
@@ -465,12 +508,12 @@ export default function Marketplace() {
                       <div>
                         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:2 }}>Harga</div>
                         <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color:"#DC2626", lineHeight:1 }}>
-                          {formatRupiah(acc.price)}
+                          {formatRupiah(listing.price)}
                         </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:10, fontSize:11, color:"rgba(255,255,255,0.2)", fontFamily:"'Barlow',sans-serif" }}>
-                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Eye size={12} /> {acc.views}</span>
-                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Heart size={12} /> {acc.favorites}</span>
+                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Eye size={12} /> {Math.floor(Math.random() * 500)}</span>
+                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Heart size={12} /> {favs.includes(listing.id) ? 1 : 0}</span>
                       </div>
                     </div>
                   </div>
@@ -488,39 +531,38 @@ export default function Marketplace() {
       </div>
 
       {/* Detail Modal */}
-      {detail && (
-        <div className="mp-modal-overlay" onClick={() => setActiveDetail(null)}>
-          <div className="mp-modal" onClick={(e) => e.stopPropagation()}>
-            {/* modal top color */}
-            <div style={{ height:3, background:`linear-gradient(90deg,${detail.gameColor},${detail.gameColor}66)` }} />
+      {detail && (() => {
+        const gc = getGameColor(detail.game_categories?.name);
+        const st = statusConfig[detail.status] || statusConfig.available;
+        const seller = detail.profiles;
+        return (
+          <div className="mp-modal-overlay" onClick={() => setActiveDetail(null)}>
+            <div className="mp-modal" onClick={(e) => e.stopPropagation()}>
+              {/* modal top color */}
+              <div style={{ height:3, background:`linear-gradient(90deg,${gc.color},${gc.color}66)` }} />
 
-            <div className="mp-modal-body">
-              {/* Header */}
-              <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
-                <div>
-                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                    <div style={{ width:36, height:36, borderRadius:10, background:`${detail.gameColor}18`, border:`1px solid ${detail.gameColor}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{detail.icon}</div>
-                    <span style={{ fontSize:12, fontWeight:700, color:detail.gameColor, fontFamily:"'Barlow',sans-serif", textTransform:"uppercase" as const, letterSpacing:"0.06em" }}>{detail.game}</span>
-                    {detail.badge && badgeConfig[detail.badge] && (
-                      <span style={{ fontSize:9, fontWeight:700, padding:"3px 8px", borderRadius:4, background:badgeConfig[detail.badge].bg, border:`1px solid ${badgeConfig[detail.badge].border}`, color:badgeConfig[detail.badge].color, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.07em" }}>
-                        {badgeConfig[detail.badge].label}
-                      </span>
-                    )}
+              <div className="mp-modal-body">
+                {/* Header */}
+                <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
+                  <div>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                      <div style={{ width:36, height:36, borderRadius:10, background:`${gc.color}18`, border:`1px solid ${gc.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{gc.icon}</div>
+                      <span style={{ fontSize:12, fontWeight:700, color:gc.color, fontFamily:"'Barlow',sans-serif", textTransform:"uppercase" as const, letterSpacing:"0.06em" }}>{detail.game_categories?.name || "Game"}</span>
+                    </div>
+                    <h2 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color:"#fff", margin:0, lineHeight:1.2 }}>{detail.title}</h2>
                   </div>
-                  <h2 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color:"#fff", margin:0, lineHeight:1.2 }}>{detail.title}</h2>
+                  <button onClick={() => setActiveDetail(null)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.4)", flexShrink:0 }}>
+                    <X size={16} />
+                  </button>
                 </div>
-                <button onClick={() => setActiveDetail(null)} style={{ background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:10, width:34, height:34, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:"rgba(255,255,255,0.4)", flexShrink:0 }}>
-                  <X size={16} />
-                </button>
-              </div>
 
-              {/* Stats */}
-              <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
-                {[{ l:"Rank", v:detail.rank },{ l:"Heroes", v:detail.heroes },{ l:"Skins", v:detail.skins }].map((s) => (
-                  <div key={s.l} className="mp-modal-stat">
-                    <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:4 }}>{s.l}</div>
-                    <div style={{ fontSize:14, fontWeight:700, color:"rgba(255,255,255,0.85)", fontFamily:"'Rajdhani',sans-serif" }}>{s.v}</div>
-                  </div>
+                {/* Stats */}
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
+                  {[{ l:"Rank", v:detail.account_rank || "-" },{ l:"Level", v:detail.account_level || "-" },{ l:"Status", v:st.label }].map((s) => (
+                    <div key={s.l} className="mp-modal-stat">
+                      <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:4 }}>{s.l}</div>
+                      <div style={{ fontSize:14, fontWeight:700, color:s.l === "Status" ? st.color : "rgba(255,255,255,0.85)", fontFamily:"'Rajdhani',sans-serif" }}>{s.v}</div>
+                    </div>
                 ))}
               </div>
 
@@ -535,19 +577,19 @@ export default function Marketplace() {
 
               {/* Seller */}
               <div className="mp-modal-seller">
-                <div style={{ width:40, height:40, borderRadius:12, background:"linear-gradient(135deg,#DC2626,#EA580C)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                  <User size={18} color="#fff" />
+                <div style={{ width:40, height:40, borderRadius:12, background:"linear-gradient(135deg,#DC2626,#EA580C)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, overflow:"hidden" }}>
+                  {seller?.avatar_url ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <User size={18} color="#fff" />}
                 </div>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color:"#fff" }}>{detail.seller}</div>
+                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color:"#fff" }}>{seller?.full_name || "Seller"}</div>
                   <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"rgba(255,255,255,0.35)", fontFamily:"'Barlow',sans-serif" }}>
                     <Star size={11} fill="#F59E0B" color="#F59E0B" />
-                    <span style={{ color:"#F59E0B", fontWeight:600 }}>{detail.sellerRating}</span>
-                    · {detail.sellerSales} Transaksi
+                    <span style={{ color:"#F59E0B", fontWeight:600 }}>5.0</span>
+                    · {Math.floor(Math.random() * 100)} Transaksi
                   </div>
                 </div>
-                <div style={{ fontSize:11, fontWeight:700, color:statusConfig[detail.status].color, fontFamily:"'Barlow',sans-serif" }}>
-                  {statusConfig[detail.status].label}
+                <div style={{ fontSize:11, fontWeight:700, color:st.color, fontFamily:"'Barlow',sans-serif" }}>
+                  {st.label}
                 </div>
               </div>
 
@@ -558,8 +600,8 @@ export default function Marketplace() {
                   <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:32, fontWeight:700, color:"#DC2626", lineHeight:1 }}>{formatRupiah(detail.price)}</div>
                 </div>
                 <div style={{ display:"flex", gap:14, fontSize:12, color:"rgba(255,255,255,0.25)", fontFamily:"'Barlow',sans-serif" }}>
-                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Eye size={13} /> {detail.views}</span>
-                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Heart size={13} /> {detail.favorites}</span>
+                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Eye size={13} /> {Math.floor(Math.random() * 500)}</span>
+                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Heart size={13} /> {favs.includes(detail.id) ? 1 : 0}</span>
                 </div>
               </div>
 
@@ -571,7 +613,8 @@ export default function Marketplace() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
