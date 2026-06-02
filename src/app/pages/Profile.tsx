@@ -4,10 +4,10 @@ import {
   User, Star, Shield, Package, Tag, Settings, LogOut,
   ChevronRight, TrendingUp, Wallet, Clock, CheckCircle,
   AlertCircle, Edit3, Bell, Lock, HelpCircle, Camera,
-  Trophy, Zap, Copy, ExternalLink, Loader2
+  Trophy, Zap, Copy, ExternalLink, Loader2, X
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getMyListings, getMyOrders, updateProfile } from "../../lib/supabase";
+import { getMyListings, getMyOrders, updateProfile, changePassword } from "../../lib/supabase";
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -221,6 +221,16 @@ export default function Profile() {
   const [saving, setSaving]         = useState(false);
   const [saveMsg, setSaveMsg]       = useState("");
 
+  // Change Password Modal
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ new: "", confirm: "" });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState("");
+
+  // Logout Modal
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
   // Form state
   const [formName,  setFormName]  = useState("");
   const [formPhone, setFormPhone] = useState("");
@@ -297,8 +307,49 @@ export default function Profile() {
   };
 
   const handleLogout = async () => {
+    setLogoutLoading(true);
     await logout();
+    setLogoutLoading(false);
+    setShowLogoutModal(false);
     navigate("/");
+  };
+
+  const handleChangePassword = async () => {
+    // Validation
+    if (!passwordForm.new || !passwordForm.confirm) {
+      setPasswordMsg("❌ Password baru dan konfirmasi harus diisi");
+      return;
+    }
+
+    if (passwordForm.new.length < 6) {
+      setPasswordMsg("❌ Password baru minimal 6 karakter");
+      return;
+    }
+
+    if (passwordForm.new !== passwordForm.confirm) {
+      setPasswordMsg("❌ Password baru tidak cocok");
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordMsg("");
+
+    // Update password langsung (Supabase handle verifikasi di server)
+    const { error } = await changePassword(passwordForm.new);
+
+    setPasswordLoading(false);
+
+    if (!error) {
+      setPasswordMsg("✅ Password berhasil diubah!");
+      // Close modal immediately dengan delay minimal untuk user feedback
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordForm({ new: "", confirm: "" });
+        setPasswordMsg("");
+      }, 500);
+    } else {
+      setPasswordMsg("❌ " + ((error as any)?.message || "Gagal mengubah password"));
+    }
   };
 
   // Derived stats
@@ -397,8 +448,7 @@ export default function Profile() {
                 <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 24, fontWeight: 700, color: "#10B981", marginBottom: 8 }}>
                   {formatRupiah(profile?.balance ?? 0)}
                 </div>
-                <button onClick={() => navigate("/wallet")} className="prof-btn prof-btn-primary"
-                style={{ background: "none", border: "none", color: "#ed8739", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                <button style={{ background: "none", border: "none", color: "#EA580C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   + Top Up Saldo
                 </button>
               </div>
@@ -701,13 +751,13 @@ export default function Profile() {
               </div>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 {[
-                  { label: "Ganti Password",    icon: Lock,       desc: "Ubah password akun kamu" },
+                  { label: "Ganti Password",    icon: Lock,       desc: "Ubah password akun kamu", action: () => setShowPasswordModal(true) },
                   { label: "Verifikasi 2FA",    icon: Shield,     desc: "Aktifkan untuk keamanan ekstra" },
                   { label: "Riwayat Login",     icon: HelpCircle, desc: "Lihat aktivitas login terakhir" },
                 ].map((item, i) => {
                   const Icon = item.icon;
                   return (
-                    <button key={item.label} className="prof-setting-item" style={{ borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+                    <button key={item.label} onClick={item.action} className="prof-setting-item" style={{ borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
                       <div className="prof-setting-icon"><Icon className="w-4 h-4" style={{ color: "#DC2626" }} /></div>
                       <div style={{ flex: 1, textAlign: "left" }}>
                         <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{item.label}</div>
@@ -722,7 +772,7 @@ export default function Profile() {
 
             {/* Logout */}
             <div className="prof-danger">
-              <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#DC2626", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+              <button onClick={() => setShowLogoutModal(true)} style={{ background: "none", border: "none", color: "#DC2626", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
                 <LogOut className="w-4 h-4" /> Keluar dari Akun
               </button>
             </div>
@@ -730,6 +780,125 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      {/* ── PASSWORD MODAL ──────────────────────────────── */}
+      {showPasswordModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
+          <div style={{ background: "#0d0d0f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }} className="prof-animate">
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <h2 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", margin: 0 }}>Ganti Password</h2>
+              <button onClick={() => { setShowPasswordModal(false); setPasswordMsg(""); setPasswordForm({ new: "", confirm: "" }); }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: 8, display: "flex", alignItems: "center" }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Message */}
+            {passwordMsg && (
+              <div style={{ padding: "12px 16px", borderRadius: 10, background: passwordMsg.startsWith("✅") ? "rgba(16,185,129,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${passwordMsg.startsWith("✅") ? "rgba(16,185,129,0.3)" : "rgba(220,38,38,0.3)"}`, color: passwordMsg.startsWith("✅") ? "#10B981" : "#DC2626", fontSize: 12, fontWeight: 600, marginBottom: 16 }}>
+                {passwordMsg}
+              </div>
+            )}
+
+            {/* Form */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 24 }}>
+              {/* New Password */}
+              <div>
+                <label className="prof-label">Password Baru</label>
+                <input
+                  type="password"
+                  value={passwordForm.new}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, new: e.target.value })}
+                  className="prof-input"
+                  placeholder="Masukkan password baru (min. 6 karakter)"
+                  disabled={passwordLoading}
+                  autoFocus
+                />
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="prof-label">Konfirmasi Password Baru</label>
+                <input
+                  type="password"
+                  value={passwordForm.confirm}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, confirm: e.target.value })}
+                  className="prof-input"
+                  placeholder="Ulangi password baru"
+                  disabled={passwordLoading}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !passwordLoading) {
+                      handleChangePassword();
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Info */}
+              <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 11, color: "rgba(59,130,246,0.8)", display: "flex", gap: 8 }}>
+                  <AlertCircle className="w-4 h-4" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div>Password minimal 6 karakter. Gunakan kombinasi huruf besar, kecil, angka, dan simbol untuk keamanan lebih baik.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => { setShowPasswordModal(false); setPasswordMsg(""); setPasswordForm({ new: "", confirm: "" }); }} className="prof-btn prof-btn-secondary" style={{ flex: 1 }} disabled={passwordLoading}>
+                Batal
+              </button>
+              <button onClick={handleChangePassword} className="prof-btn prof-btn-primary" style={{ flex: 1 }} disabled={passwordLoading}>
+                {passwordLoading
+                  ? <><Loader2 className="w-3.5 h-3.5" style={{ animation: "spin 0.7s linear infinite" }} /> Menyimpan...</>
+                  : "Ganti Password"
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── LOGOUT MODAL ─────────────────────────────── */}
+      {showLogoutModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
+          <div style={{ background: "#0d0d0f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }} className="prof-animate">
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <h2 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "#fff", margin: 0 }}>Keluar dari Akun</h2>
+              <button onClick={() => setShowLogoutModal(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", padding: 8, display: "flex", alignItems: "center" }}>
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Message */}
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", lineHeight: 1.6, marginBottom: 16 }}>
+                Apakah Anda yakin ingin keluar dari akun? Anda akan perlu login kembali untuk mengakses profil dan transaksi.
+              </div>
+              <div style={{ background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)", borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 12, color: "rgba(220,38,38,0.8)", display: "flex", gap: 8 }}>
+                  <AlertCircle className="w-4 h-4" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div>Pastikan tidak ada transaksi penting yang sedang berlangsung.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setShowLogoutModal(false)} className="prof-btn prof-btn-secondary" style={{ flex: 1 }} disabled={logoutLoading}>
+                Batal
+              </button>
+              <button onClick={handleLogout} className="prof-btn prof-btn-primary" style={{ flex: 1, background: "linear-gradient(135deg, #DC2626, #EA580C)" }} disabled={logoutLoading}>
+                {logoutLoading
+                  ? <><Loader2 className="w-3.5 h-3.5" style={{ animation: "spin 0.7s linear infinite" }} /> Keluar...</>
+                  : <>Keluar dari Akun</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

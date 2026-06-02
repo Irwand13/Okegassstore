@@ -95,6 +95,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ─── CLEAR ALL STORAGE & COOKIES
+  const clearAllStorage = () => {
+    try {
+      // Clear localStorage
+      localStorage.clear();
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      // Clear specific Supabase keys - clear dengan berbagai varian
+      const keysToRemove = [
+        'sb-yiqeybjphrkmfjcmgeix-auth-token',
+        'supabase.auth.token',
+        'auth.session',
+        'auth.user',
+        'SUPABASE_SESSION',
+        'sb_' // prefix Supabase
+      ];
+      
+      // Remove keys from localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (keysToRemove.some(k => key.includes(k))) {
+          localStorage.removeItem(key);
+          console.log(`🗑️ Removed localStorage: ${key}`);
+        }
+      });
+      
+      // Remove keys from sessionStorage
+      Object.keys(sessionStorage).forEach(key => {
+        if (keysToRemove.some(k => key.includes(k))) {
+          sessionStorage.removeItem(key);
+          console.log(`🗑️ Removed sessionStorage: ${key}`);
+        }
+      });
+      
+      // Clear IndexedDB
+      if (window.indexedDB) {
+        try {
+          const request = window.indexedDB.deleteDatabase('supabase');
+          request.onsuccess = () => console.log("✅ IndexedDB cleared");
+        } catch (e) {
+          console.error("IndexedDB clear error:", e);
+        }
+      }
+      
+      // Clear semua cookies dengan berbagai cara
+      document.cookie.split(";").forEach((c) => {
+        const eqPos = c.indexOf("=");
+        const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
+        if (name) {
+          // Clear dengan path /
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`;
+          // Clear dengan domain
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};SameSite=Lax`;
+          console.log(`🗑️ Cleared cookie: ${name}`);
+        }
+      });
+      
+      console.log("✅ COMPLETE: Semua storage, localStorage, sessionStorage, IndexedDB & cookies dihapus");
+    } catch (error) {
+      console.error("❌ Error clearing storage:", error);
+    }
+  };
+
   useEffect(() => {
     // ✅ Pakai HANYA onAuthStateChange — tidak perlu getSession terpisah
     // onAuthStateChange otomatis fire INITIAL_SESSION saat pertama mount
@@ -106,8 +170,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (session?.user) {
           await loadProfile(session.user.id, session.user.email);
         } else {
+          // Tidak ada session - clear all storage untuk clean state
           setUser(null);
           setProfile(null);
+          clearAllStorage();
         }
 
         // Loading selesai setelah event pertama
@@ -116,6 +182,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
+  }, []);
+
+  // ─── AUTO LOGOUT saat browser ditutup
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      // Logout saat user close browser/tab
+      await supabase.auth.signOut();
+      clearAllStorage();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
   }, []);
 
   // ─── LOGIN
@@ -161,10 +242,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await supabase.auth.signOut();
-    setUser(null);        // ← reset dulu sebelum signOut
+    setUser(null);
     setProfile(null);
     setSession(null);
-    await supabase.auth.signOut();
+    clearAllStorage();
     // onAuthStateChange akan handle clear user & profile
   };
 

@@ -155,6 +155,11 @@ export const getSession = async () => {
   return session
 }
 
+export const changePassword = async (newPassword: string) => {
+  const { data, error } = await supabase.auth.updateUser({ password: newPassword })
+  return { data, error }
+}
+
 // ─── Profile ──────────────────────────────────────────────────────
 
 export const getProfile = async (userId: string) => {
