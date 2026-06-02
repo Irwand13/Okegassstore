@@ -7,6 +7,7 @@ import SellAccount from "./pages/SellAccount";
 import Profile from "./pages/Profile";
 import Bantuan from "./pages/Bantuan";
 import pulsa from "./pages/pulsa";
+import Wallet from "./pages/Wallet";
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ export const router = createBrowserRouter([
       { path: "profile", Component: Profile },
       { path: "bantuan", Component: Bantuan },
       { path: "layanandigital", Component: pulsa },
+      { path: "wallet", Component: Wallet },
     ],
   },
 ]);

@@ -6,7 +6,6 @@ import EscrowBanner from "../components/home/EscrowBanner";
 import FeaturedAccounts from "../components/home/FeaturedAccounts";
 import Testimonials from "../components/home/Testimonials";
 
-
 export default function Home() {
   return (
     <div>

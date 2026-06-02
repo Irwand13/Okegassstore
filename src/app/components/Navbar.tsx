@@ -9,7 +9,6 @@ const LOGO_URL = "https://i.pinimg.com/736x/ad/14/4a/ad144a58f41774b689ee453ed42
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap');
 
-/* ─── Root ─── */
 .nb2-root {
   position: sticky; top: 0; z-index: 100;
   font-family: 'Barlow', sans-serif;
@@ -36,8 +35,6 @@ const STYLES = `
   backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255,255,255,0.03);
 }
-
-/* ─── Inner ─── */
 .nb2-inner {
   max-width: 1280px; margin: 0 auto;
   padding: 0 24px; height: 66px;
@@ -45,24 +42,14 @@ const STYLES = `
   justify-content: space-between; gap: 20px;
   position: relative; z-index: 1;
 }
-
-/* ─── Logo wolf ─── */
 .nb2-logo {
   display: flex; align-items: center; gap: 11px;
   text-decoration: none; flex-shrink: 0;
 }
-
-/* The wolf logo card — 3D tilt + shimmer handled in JS */
 .nb2-logo-wolf {
-  width: 42px; height: 42px;
-  border-radius: 11px;
-  overflow: hidden;
-  flex-shrink: 0;
-  position: relative;
-  cursor: pointer;
-  transform-style: preserve-3d;
-  will-change: transform;
-  /* red glow ring */
+  width: 42px; height: 42px; border-radius: 11px;
+  overflow: hidden; flex-shrink: 0; position: relative;
+  cursor: pointer; transform-style: preserve-3d; will-change: transform;
   box-shadow:
     0 0 0 1.5px rgba(220,38,38,0.45),
     0 0 0 4px rgba(220,38,38,0.07),
@@ -78,28 +65,19 @@ const STYLES = `
     0 6px 20px rgba(0,0,0,0.7);
 }
 .nb2-logo-wolf img {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
-  border-radius: 11px;
-  filter: saturate(1.1) contrast(1.05);
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  border-radius: 11px; filter: saturate(1.1) contrast(1.05);
   pointer-events: none; user-select: none;
 }
-/* shimmer overlay — updated by JS */
 .nb2-logo-shimmer {
-  position: absolute; inset: 0;
-  border-radius: 11px;
-  pointer-events: none;
-  mix-blend-mode: screen;
+  position: absolute; inset: 0; border-radius: 11px;
+  pointer-events: none; mix-blend-mode: screen;
 }
-/* static bottom vignette */
 .nb2-logo-vignette {
-  position: absolute; inset: 0;
-  border-radius: 11px;
+  position: absolute; inset: 0; border-radius: 11px;
   background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.22) 100%);
   pointer-events: none;
 }
-
-/* Text beside logo */
 .nb2-logo-text {
   font-family: 'Rajdhani', sans-serif;
   font-size: 21px; font-weight: 700; color: #fff;
@@ -107,31 +85,24 @@ const STYLES = `
 }
 .nb2-logo-sub {
   font-size: 9px; font-weight: 600; letter-spacing: 0.12em;
-  color: rgba(255,255,255,0.25); text-transform: uppercase;
-  margin-top: 3px;
+  color: rgba(255,255,255,0.25); text-transform: uppercase; margin-top: 3px;
 }
-
-/* ─── Nav links ─── */
 .nb2-links {
-  display: flex; align-items: center; gap: 2px; flex: 1;
-  justify-content: center;
+  display: flex; align-items: center; gap: 2px; flex: 1; justify-content: center;
 }
 .nb2-link {
-  position: relative; padding: 8px 16px;
-  border-radius: 10px;
+  position: relative; padding: 8px 16px; border-radius: 10px;
   font-size: 13px; font-weight: 700; letter-spacing: 0.04em;
   color: rgba(255,255,255,0.45); text-decoration: none;
   transition: all 0.22s ease; overflow: hidden;
 }
 .nb2-link::before {
-  content: '';
-  position: absolute; inset: 0; border-radius: 10px;
+  content: ''; position: absolute; inset: 0; border-radius: 10px;
   background: linear-gradient(135deg, rgba(220,38,38,0.12), rgba(234,88,12,0.08));
   opacity: 0; transition: opacity 0.22s;
 }
 .nb2-link::after {
-  content: '';
-  position: absolute; bottom: 5px; left: 50%; right: 50%;
+  content: ''; position: absolute; bottom: 5px; left: 50%; right: 50%;
   height: 1.5px; background: linear-gradient(90deg, #DC2626, #EA580C);
   border-radius: 1px; transition: all 0.25s ease;
 }
@@ -141,10 +112,7 @@ const STYLES = `
 .nb2-link.active { color: #fff; }
 .nb2-link.active::before { opacity: 1; }
 .nb2-link.active::after { left: 16px; right: 16px; }
-
-/* ─── Right side ─── */
 .nb2-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-
 .nb2-login-btn {
   padding: 8px 20px; border-radius: 9px;
   background: transparent; border: 1px solid rgba(255,255,255,0.1);
@@ -170,8 +138,6 @@ const STYLES = `
 }
 .nb2-register-btn:hover { box-shadow: 0 6px 24px rgba(220,38,38,0.55); transform: translateY(-1px); }
 .nb2-register-btn:active { transform: translateY(0); }
-
-/* user pill */
 .nb2-user-pill {
   display: flex; align-items: center; gap: 9px;
   padding: 5px 12px 5px 6px;
@@ -184,7 +150,7 @@ const STYLES = `
   width: 32px; height: 32px; border-radius: 9px;
   background: linear-gradient(135deg, #DC2626, #EA580C);
   display: flex; align-items: center; justify-content: center;
-  font-size: 15px; font-weight: 700; color: #fff; font-family: 'Rajdhani', sans-serif;
+  font-size: 13px; font-weight: 700; color: #fff; font-family: 'Rajdhani', sans-serif;
   box-shadow: 0 2px 8px rgba(220,38,38,0.3); flex-shrink: 0; position: relative; overflow: hidden;
 }
 .nb2-user-avatar::before {
@@ -196,8 +162,6 @@ const STYLES = `
 .nb2-user-level { font-size: 10px; font-weight: 700; color: rgba(245,158,11,0.75); margin-top: 2px; letter-spacing: 0.05em; text-transform: uppercase; }
 .nb2-chevron { color: rgba(255,255,255,0.3); transition: transform 0.25s ease; flex-shrink: 0; }
 .nb2-chevron.open { transform: rotate(180deg); }
-
-/* bell */
 .nb2-bell {
   width: 38px; height: 38px; border-radius: 10px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
@@ -212,8 +176,6 @@ const STYLES = `
   animation: nb2-pulse 2s ease-in-out infinite;
 }
 @keyframes nb2-pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.25);opacity:0.7} }
-
-/* dropdown */
 .nb2-dropdown {
   position: absolute; top: calc(100% + 10px); right: 0; width: 220px;
   background: #111115; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px;
@@ -230,7 +192,7 @@ const STYLES = `
   width: 38px; height: 38px; border-radius: 10px;
   background: linear-gradient(135deg, #DC2626, #EA580C);
   display: flex; align-items: center; justify-content: center;
-  font-size: 18px; font-weight: 700; color: #fff; font-family: 'Rajdhani', sans-serif;
+  font-size: 16px; font-weight: 700; color: #fff; font-family: 'Rajdhani', sans-serif;
   box-shadow: 0 4px 12px rgba(220,38,38,0.35); flex-shrink: 0; position: relative; overflow: hidden;
 }
 .nb2-dd-avatar-lg::before {
@@ -263,8 +225,6 @@ const STYLES = `
 .nb2-dd-item.danger:hover { color: #DC2626; background: rgba(220,38,38,0.07); }
 .nb2-dd-item.danger:hover .nb2-dd-item-icon { background: rgba(220,38,38,0.12); }
 .nb2-dd-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 4px 10px; }
-
-/* hamburger */
 .nb2-hamburger {
   width: 40px; height: 40px; border-radius: 11px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
@@ -273,8 +233,6 @@ const STYLES = `
 }
 .nb2-hamburger:hover { background: rgba(220,38,38,0.1); border-color: rgba(220,38,38,0.3); color: #DC2626; }
 .nb2-hamburger.open { background: rgba(220,38,38,0.1); border-color: rgba(220,38,38,0.25); color: #DC2626; }
-
-/* mobile menu */
 .nb2-mobile {
   background: rgba(8,8,10,0.97); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(255,255,255,0.05); padding: 12px 20px 24px;
@@ -293,6 +251,13 @@ const STYLES = `
 .nb2-mobile-link.active { color: #DC2626; background: rgba(220,38,38,0.07); }
 .nb2-mobile-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 8px 0; }
 .nb2-mobile-auth { display: flex; gap: 10px; margin-top: 12px; }
+.nb2-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: nb2-shimmer 1.4s infinite;
+  border-radius: 8px;
+}
+@keyframes nb2-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
 
 @media (min-width: 768px) { .nb2-mobile-only { display: none !important; } }
 @media (max-width: 767px) { .nb2-desktop-only { display: none !important; } }
@@ -300,7 +265,16 @@ const STYLES = `
 
 const formatRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
-/* ── Mini wolf logo with cursor shimmer + tilt ── */
+// Ambil inisial nama untuk avatar
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 function NavLogo() {
   const cardRef = useRef<HTMLDivElement>(null);
   const shimRef = useRef<HTMLDivElement>(null);
@@ -310,12 +284,10 @@ function NavLogo() {
 
   useEffect(() => {
     const MAX_TILT = 14;
-
     const onMove = (e: MouseEvent) => {
       const el = cardRef.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
-      // use window mouse position mapped onto the small card
       mouse.current.x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
       mouse.current.y = Math.max(0, Math.min(1, (e.clientY - rect.top)  / rect.height));
     };
@@ -324,17 +296,13 @@ function NavLogo() {
     const tick = () => {
       const mx = mouse.current.x;
       const my = mouse.current.y;
-
       const targetRX = -(my - 0.5) * MAX_TILT * 2;
       const targetRY =  (mx - 0.5) * MAX_TILT * 2;
-      const targetSX = mx * 100;
-      const targetSY = my * 100;
-
       const k = 0.1;
       cur.current.rx += (targetRX - cur.current.rx) * k;
       cur.current.ry += (targetRY - cur.current.ry) * k;
-      cur.current.sx += (targetSX - cur.current.sx) * k;
-      cur.current.sy += (targetSY - cur.current.sy) * k;
+      cur.current.sx += (mx * 100 - cur.current.sx) * k;
+      cur.current.sy += (my * 100 - cur.current.sy) * k;
 
       if (cardRef.current) {
         cardRef.current.style.transform =
@@ -349,14 +317,7 @@ function NavLogo() {
             rgba(255,255,255,${(0.20 + intensity * 0.14).toFixed(2)}) 0%,
             rgba(255,200,100,${(0.10 + intensity * 0.07).toFixed(2)}) 28%,
             transparent 60%
-          ),
-          linear-gradient(
-            ${(cur.current.ry * 4).toFixed(0)}deg,
-            rgba(255,80,20,${(0.07 + intensity * 0.05).toFixed(2)}) 0%,
-            transparent 50%,
-            rgba(200,40,10,${(0.05 + intensity * 0.03).toFixed(2)}) 100%
-          )
-        `;
+          )`;
       }
       rafId.current = requestAnimationFrame(tick);
     };
@@ -378,12 +339,22 @@ function NavLogo() {
 }
 
 export default function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen]   = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const { user, logout, setShowAuthModal } = useAuth();
-  const location = useLocation();
+  const [scrolled, setScrolled]       = useState(false);
+
+  // ✅ Tambah profile & loading dari AuthContext
+  const { user, profile, loading, logout, setShowAuthModal } = useAuth();
+
+  const location    = useLocation();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Derived display values — prioritaskan profile Supabase
+  const displayName    = profile?.full_name || profile?.username || user?.name || "User";
+  const displayBalance = profile?.balance ?? user?.balance ?? 0;
+  const displayEmail   = user?.email || "";
+  const displayInitials = displayName !== "User" ? getInitials(displayName) : "👤";
+  const isVerified     = profile?.is_verified_seller || user?.verified || false;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -404,13 +375,24 @@ export default function Navbar() {
   useEffect(() => { setMobileOpen(false); }, [location.pathname]);
 
   const navLinks = [
-    { label: "Top Up",        to: "/topup" },
-    { label: "Jual Beli Akun", to: "/marketplace" },
-    { label : "Layanan Digital", to : "/layanandigital" },
-    { label: "Bantuan", to: "/Bantuan" },
+    { label: "Top Up",          to: "/topup" },
+    { label: "Jual Beli Akun",  to: "/marketplace" },
+    { label: "Layanan Digital", to: "/layanandigital" },
+    { label: "Bantuan",         to: "/Bantuan" },
   ];
   const isActive = (to: string) => location.pathname === to;
   const openAuth = () => { setShowAuthModal(true); setMobileOpen(false); };
+
+  // Loading skeleton saat cek session
+  const UserSkeleton = () => (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <div className="nb2-skeleton" style={{ width: 32, height: 32, borderRadius: 9 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <div className="nb2-skeleton" style={{ width: 64, height: 10 }} />
+        <div className="nb2-skeleton" style={{ width: 44, height: 8 }} />
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -441,7 +423,11 @@ export default function Navbar() {
 
           {/* ── Desktop right ── */}
           <div className="nb2-right nb2-desktop-only">
-            {user ? (
+
+            {/* Loading state */}
+            {loading ? (
+              <UserSkeleton />
+            ) : user ? (
               <>
                 <button type="button" className="nb2-bell" aria-label="Notifikasi">
                   <Bell size={16} />
@@ -453,12 +439,17 @@ export default function Navbar() {
                     type="button"
                     className={`nb2-user-pill ${userMenuOpen ? "open" : ""}`}
                     onClick={() => setUserMenuOpen((v) => !v)}
-                    aria-label="Menu pengguna"
                   >
-                    <div className="nb2-user-avatar">{user.avatar}</div>
+                    {/* ✅ Avatar pakai inisial nama asli */}
+                    <div className="nb2-user-avatar">
+                      {displayInitials}
+                    </div>
                     <div className="nb2-user-info">
-                      <div className="nb2-user-name">{user.name}</div>
-                      <div className="nb2-user-level">⚡ Trusted Seller</div>
+                      {/* ✅ Nama dari profile Supabase */}
+                      <div className="nb2-user-name">{displayName}</div>
+                      <div className="nb2-user-level">
+                        {isVerified ? "⚡ Trusted Seller" : "🎮 Member"}
+                      </div>
                     </div>
                     <ChevronDown size={14} className={`nb2-chevron ${userMenuOpen ? "open" : ""}`} />
                   </button>
@@ -466,16 +457,18 @@ export default function Navbar() {
                   {userMenuOpen && (
                     <div className="nb2-dropdown">
                       <div className="nb2-dd-user">
-                        <div className="nb2-dd-avatar-lg">{user.avatar}</div>
+                        <div className="nb2-dd-avatar-lg">{displayInitials}</div>
                         <div>
-                          <div className="nb2-dd-name">{user.name}</div>
-                          <div className="nb2-dd-email">{user.email}</div>
+                          {/* ✅ Nama & email dari Supabase */}
+                          <div className="nb2-dd-name">{displayName}</div>
+                          <div className="nb2-dd-email">{displayEmail}</div>
                         </div>
                       </div>
 
+                      {/* ✅ Saldo dari profile Supabase */}
                       <div className="nb2-dd-balance">
                         <div className="nb2-dd-balance-label"><Wallet size={11} /> Saldo</div>
-                        <div className="nb2-dd-balance-val">{formatRp(250000)}</div>
+                        <div className="nb2-dd-balance-val">{formatRp(displayBalance)}</div>
                       </div>
 
                       <div className="nb2-dd-section">
@@ -485,11 +478,18 @@ export default function Navbar() {
                         <Link to="/marketplace/sell" className="nb2-dd-item" onClick={() => setUserMenuOpen(false)}>
                           <div className="nb2-dd-item-icon"><Tag size={13} /></div> Jual Akun
                         </Link>
+                        <Link to="/wallet" className="nb2-dd-item" onClick={() => setUserMenuOpen(false)}>
+                          <div className="nb2-dd-item-icon"><Wallet size={13} /></div> Wallet
+                        </Link>
                         <Link to="/profile" className="nb2-dd-item" onClick={() => setUserMenuOpen(false)}>
                           <div className="nb2-dd-item-icon"><Settings size={13} /></div> Pengaturan
                         </Link>
                         <div className="nb2-dd-divider" />
-                        <button type="button" className="nb2-dd-item danger" onClick={() => { logout(); setUserMenuOpen(false); }}>
+                        <button
+                          type="button"
+                          className="nb2-dd-item danger"
+                          onClick={() => { logout(); setUserMenuOpen(false); }}
+                        >
                           <div className="nb2-dd-item-icon"><LogOut size={13} /></div> Keluar
                         </button>
                       </div>
@@ -512,7 +512,6 @@ export default function Navbar() {
             type="button"
             className={`nb2-hamburger nb2-mobile-only ${mobileOpen ? "open" : ""}`}
             onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Toggle menu"
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
@@ -530,7 +529,9 @@ export default function Navbar() {
 
             <div className="nb2-mobile-divider" />
 
-            {user ? (
+            {loading ? (
+              <UserSkeleton />
+            ) : user ? (
               <>
                 <div style={{
                   display: "flex", alignItems: "center", gap: 10,
@@ -538,13 +539,14 @@ export default function Navbar() {
                   background: "rgba(255,255,255,0.03)",
                   border: "1px solid rgba(255,255,255,0.06)", borderRadius: 11,
                 }}>
-                  <div className="nb2-user-avatar" style={{ width: 36, height: 36, fontSize: 16, borderRadius: 9 }}>
-                    {user.avatar}
+                  <div className="nb2-user-avatar" style={{ width: 36, height: 36, fontSize: 13, borderRadius: 9 }}>
+                    {displayInitials}
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{user.name}</div>
+                    {/* ✅ Nama & saldo dari Supabase */}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{displayName}</div>
                     <div style={{ fontSize: 10, color: "rgba(16,185,129,0.7)", fontWeight: 700 }}>
-                      Saldo: {formatRp(250000)}
+                      Saldo: {formatRp(displayBalance)}
                     </div>
                   </div>
                 </div>

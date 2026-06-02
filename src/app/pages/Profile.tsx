@@ -1,32 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   User, Star, Shield, Package, Tag, Settings, LogOut,
   ChevronRight, TrendingUp, Wallet, Clock, CheckCircle,
   AlertCircle, Edit3, Bell, Lock, HelpCircle, Camera,
-  Trophy, Zap, Copy, ExternalLink, X
+  Trophy, Zap, Copy, ExternalLink, Loader2
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { getMyListings, getMyOrders, updateProfile } from "../../lib/supabase";
 
-const transactions = [
-  { id: "TRX-001", type: "topup", game: "Mobile Legends", item: "500 Diamonds", amount: 115000, status: "success", date: "14 Mei 2026", time: "14:32" },
-  { id: "TRX-002", type: "buy", game: "PUBG Mobile", item: "Akun Conqueror Season 29", amount: 4200000, status: "escrow", date: "13 Mei 2026", time: "10:15" },
-  { id: "TRX-003", type: "topup", game: "Genshin Impact", item: "1980 Genesis Crystals", amount: 462000, status: "success", date: "12 Mei 2026", time: "20:05" },
-  { id: "TRX-004", type: "sell", game: "Free Fire", item: "Akun Grandmaster FF", amount: 1200000, status: "pending", date: "10 Mei 2026", time: "09:44" },
-  { id: "TRX-005", type: "topup", game: "Free Fire", item: "355 Diamonds", amount: 79000, status: "success", date: "08 Mei 2026", time: "16:50" },
-  { id: "TRX-006", type: "buy", game: "Mobile Legends", item: "Akun Mythic Glory ML", amount: 3500000, status: "success", date: "05 Mei 2026", time: "11:30" },
-];
-
-const myListings = [
-  { id: "LST-001", game: "Free Fire", title: "Akun Grandmaster FF Full Bundle", rank: "Grandmaster", price: 1200000, status: "pending", views: 34, date: "10 Mei 2026" },
-  { id: "LST-002", game: "PUBG Mobile", title: "Akun Ace PUBG Full Outfit", rank: "Ace", price: 1950000, status: "active", views: 87, date: "01 Mei 2026" },
-];
-
+// ─── STYLES ──────────────────────────────────────────────────────────────────
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
 
 .prof-root { min-height: 100vh; background: #0d0d0f; font-family: 'Barlow', sans-serif; }
 
-/* Hero Section */
 .prof-hero {
   position: relative; padding: 44px 0 40px; overflow: hidden;
   border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -41,21 +29,20 @@ const STYLES = `
   background-size: 40px 40px;
 }
 
-/* Avatar */
 .prof-avatar {
   width: 80px; height: 80px; border-radius: 20px;
   background: linear-gradient(135deg, #DC2626, #EA580C);
   display: flex; align-items: center; justify-content: center;
   font-family: 'Rajdhani', sans-serif; font-size: 32px; font-weight: 700;
   color: #fff; box-shadow: 0 8px 24px rgba(220,38,38,0.3);
-  position: relative;
+  position: relative; overflow: hidden; flex-shrink: 0;
 }
+.prof-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
 .prof-avatar-cam {
   position: absolute; bottom: -4px; right: -4px;
   width: 28px; height: 28px; background: #fff;
   border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;
-  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer; transition: all 0.2s;
 }
 .prof-avatar-cam:hover { background: #f0f0f0; transform: scale(1.05); }
 .prof-badge-verified {
@@ -65,56 +52,41 @@ const STYLES = `
   box-shadow: 0 2px 8px rgba(59,130,246,0.3);
 }
 
-/* Tabs */
 .prof-tabs {
   display: flex; gap: 4px; background: rgba(255,255,255,0.025);
   border: 1px solid rgba(255,255,255,0.07); border-radius: 12px;
-  padding: 4px; width: fit-content; margin-bottom: 24px;
+  padding: 4px; width: fit-content; margin-bottom: 24px; flex-wrap: wrap;
 }
 .prof-tab {
   display: flex; align-items: center; gap: 8px; padding: 10px 18px;
   border-radius: 8px; font-size: 13px; font-weight: 700;
   cursor: pointer; transition: all 0.2s; color: rgba(255,255,255,0.4);
-  background: transparent; border: none;
+  background: transparent; border: none; font-family: 'Barlow', sans-serif;
 }
-.prof-tab.active {
-  background: linear-gradient(135deg, #DC2626, #EA580C);
-  color: #fff; box-shadow: 0 4px 12px rgba(220,38,38,0.3);
-}
+.prof-tab.active { background: linear-gradient(135deg, #DC2626, #EA580C); color: #fff; box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
 .prof-tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
 
-/* Filter Buttons */
 .prof-filter-btn {
   padding: 10px 16px; border-radius: 10px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
   color: rgba(255,255,255,0.4); font-size: 13px; font-weight: 700;
   cursor: pointer; transition: all 0.2s; font-family: 'Barlow', sans-serif;
 }
-.prof-filter-btn.active {
-  background: linear-gradient(135deg, #DC2626, #EA580C);
-  border-color: #DC2626; color: #fff;
-}
+.prof-filter-btn.active { background: linear-gradient(135deg, #DC2626, #EA580C); border-color: #DC2626; color: #fff; }
 .prof-filter-btn:hover:not(.active) { border-color: rgba(255,255,255,0.15); }
 
-/* Transaction Item */
 .prof-tx-item {
   display: flex; align-items: center; gap: 16px; padding: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s;
-  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s; cursor: pointer;
 }
+.prof-tx-item:last-child { border-bottom: none; }
 .prof-tx-item:hover { background: rgba(255,255,255,0.02); }
 .prof-tx-icon {
   width: 40px; height: 40px; border-radius: 10px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.prof-tx-info { flex: 1; min-width: 0; }
-.prof-tx-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 4px; }
-.prof-tx-meta { font-size: 11px; color: rgba(255,255,255,0.3); }
-.prof-tx-amount { font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; text-align: right; }
-.prof-tx-status { font-size: 11px; margin-top: 6px; text-align: right; display: flex; justify-content: flex-end; }
 
-/* Card */
 .prof-card {
   background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
   border-radius: 16px; padding: 24px; margin-bottom: 20px;
@@ -125,7 +97,6 @@ const STYLES = `
 }
 .prof-card-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: #fff; }
 
-/* Input */
 .prof-input {
   width: 100%; padding: 12px 14px; box-sizing: border-box;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
@@ -135,14 +106,12 @@ const STYLES = `
 .prof-input::placeholder { color: rgba(255,255,255,0.15); }
 .prof-input:focus { border-color: rgba(220,38,38,0.4); background: rgba(220,38,38,0.04); }
 
-/* Label */
 .prof-label {
   display: block; font-size: 11px; font-weight: 700;
   color: rgba(255,255,255,0.35); margin-bottom: 8px;
   text-transform: uppercase; letter-spacing: 0.06em;
 }
 
-/* Toggle Switch */
 .prof-toggle {
   position: relative; width: 44px; height: 24px; border-radius: 12px;
   background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1);
@@ -156,141 +125,206 @@ const STYLES = `
 }
 .prof-toggle.on .prof-toggle-circle { transform: translateX(20px); }
 
-/* Status Badge */
 .prof-badge {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; padding: 5px 10px; border-radius: 6px;
-  font-weight: 700; white-space: nowrap;
+  font-size: 11px; padding: 5px 10px; border-radius: 6px; font-weight: 700; white-space: nowrap;
 }
 .prof-badge-success { background: rgba(16,185,129,0.15); color: #10B981; }
 .prof-badge-amber { background: rgba(245,158,11,0.15); color: #F59E0B; }
 .prof-badge-blue { background: rgba(59,130,246,0.15); color: #3B82F6; }
+.prof-badge-red { background: rgba(220,38,38,0.15); color: #DC2626; }
 
-/* Button */
 .prof-btn {
   padding: 11px 18px; border-radius: 10px; border: none;
   font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700;
   cursor: pointer; transition: all 0.25s; display: inline-flex;
   align-items: center; justify-content: center; gap: 6px;
 }
-.prof-btn-primary {
-  background: linear-gradient(135deg, #DC2626, #EA580C); color: #fff;
-  box-shadow: 0 4px 12px rgba(220,38,38,0.3);
-}
+.prof-btn-primary { background: linear-gradient(135deg, #DC2626, #EA580C); color: #fff; box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
 .prof-btn-primary:hover { box-shadow: 0 8px 20px rgba(220,38,38,0.5); }
-.prof-btn-secondary {
-  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.6);
-}
+.prof-btn-secondary { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1) !important; color: rgba(255,255,255,0.6); }
 .prof-btn-secondary:hover { background: rgba(255,255,255,0.08); color: #fff; }
 
-/* Listing Card */
 .prof-listing {
   background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 14px; padding: 16px; margin-bottom: 16px;
-  transition: all 0.2s;
+  border-radius: 14px; padding: 16px; margin-bottom: 16px; transition: all 0.2s;
 }
-.prof-listing:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.035); }
+.prof-listing:hover { border-color: rgba(255,255,255,0.15); }
 
-/* Settings Item */
 .prof-setting-item {
-  padding: 16px; border-radius: 10px; cursor: pointer;
-  transition: all 0.2s; border: none; background: transparent;
-  width: 100%; text-align: left; display: flex; align-items: center; gap: 12px;
+  padding: 16px; border-radius: 10px; cursor: pointer; transition: all 0.2s;
+  border: none; background: transparent; width: 100%; text-align: left;
+  display: flex; align-items: center; gap: 12px;
 }
 .prof-setting-item:hover { background: rgba(255,255,255,0.04); }
 .prof-setting-icon {
   width: 36px; height: 36px; border-radius: 10px;
-  background: rgba(255,255,255,0.04); display: flex;
-  align-items: center; justify-content: center; flex-shrink: 0;
+  background: rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.prof-setting-item:hover .prof-setting-icon { background: rgba(220,38,38,0.1); }
 
-/* Danger Zone */
 .prof-danger {
   background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2);
   border-radius: 14px; padding: 16px;
 }
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.prof-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+@keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
 .prof-animate { animation: fadeIn 0.3s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
 `;
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
+const formatDate = (iso: string) => {
+  const d = new Date(iso);
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" }) +
+    " · " + d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+};
 
 const getStatusBadge = (status: string) => {
-  if (status === "success") return <span className="prof-badge prof-badge-success"><CheckCircle className="w-3 h-3" />Berhasil</span>;
-  if (status === "escrow") return <span className="prof-badge prof-badge-amber"><Shield className="w-3 h-3" />Escrow</span>;
-  if (status === "pending") return <span className="prof-badge prof-badge-blue"><Clock className="w-3 h-3" />Menunggu</span>;
-  if (status === "active") return <span className="prof-badge prof-badge-success">Aktif</span>;
-  return <span className="prof-badge">{status}</span>;
-};
-
-const getTypeIcon = (type: string) => {
-  if (type === "topup") return <Zap className="w-4 h-4" color="#3B82F6" />;
-  if (type === "buy") return <Package className="w-4 h-4" color="#A78BFA" />;
-  if (type === "sell") return <Tag className="w-4 h-4" color="#10B981" />;
-  return null;
-};
-
-const getTypeLabel = (type: string) => {
-  if (type === "topup") return "Top Up";
-  if (type === "buy") return "Beli Akun";
-  if (type === "sell") return "Jual Akun";
-  return type;
-};
-
-const user = {
-  name: "User",
-  email: "user@okegass.com",
-  phone: "0812-3456-7890",
-  avatar: "U",
-  joinDate: "Mei 2026",
-  verified: true,
-  level: "Trusted Seller",
-  rating: 4.8,
-  totalSales: 12,
-  totalBuy: 5,
-  balance: 250000,
+  const map: Record<string, { cls: string; label: string; icon?: React.ReactNode }> = {
+    success:         { cls: "prof-badge-success", label: "Berhasil",    icon: <CheckCircle className="w-3 h-3" /> },
+    completed:       { cls: "prof-badge-success", label: "Selesai",     icon: <CheckCircle className="w-3 h-3" /> },
+    delivered:       { cls: "prof-badge-success", label: "Terkirim",    icon: <CheckCircle className="w-3 h-3" /> },
+    paid:            { cls: "prof-badge-blue",    label: "Dibayar",     icon: <Shield className="w-3 h-3" /> },
+    processing:      { cls: "prof-badge-blue",    label: "Diproses",    icon: <Clock className="w-3 h-3" /> },
+    waiting_payment: { cls: "prof-badge-amber",   label: "Menunggu",    icon: <Clock className="w-3 h-3" /> },
+    pending:         { cls: "prof-badge-amber",   label: "Menunggu",    icon: <Clock className="w-3 h-3" /> },
+    escrow:          { cls: "prof-badge-amber",   label: "Escrow",      icon: <Shield className="w-3 h-3" /> },
+    active:          { cls: "prof-badge-success", label: "Aktif" },
+    disputed:        { cls: "prof-badge-red",     label: "Dispute",     icon: <AlertCircle className="w-3 h-3" /> },
+    cancelled:       { cls: "prof-badge-red",     label: "Dibatalkan" },
+    refunded:        { cls: "prof-badge-red",     label: "Refund" },
+    draft:           { cls: "prof-badge-amber",   label: "Draft" },
+    sold:            { cls: "prof-badge-blue",    label: "Terjual" },
+  };
+  const s = map[status] || { cls: "", label: status };
+  return <span className={`prof-badge ${s.cls}`}>{s.icon}{s.label}</span>;
 };
 
 type Tab = "transactions" | "listings" | "settings";
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<Tab>("transactions");
-  const [txFilter, setTxFilter] = useState("Semua");
-  const [copied, setCopied] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [formName, setFormName] = useState(user.name);
-  const [formPhone, setFormPhone] = useState(user.phone);
-  const [notifTopup, setNotifTopup] = useState(true);
-  const [notifSell, setNotifSell] = useState(true);
-  const [notifPromo, setNotifPromo] = useState(false);
+  const { user, profile, session, logout } = useAuth();
 
-  const txFilters = ["Semua", "Top Up", "Beli Akun", "Jual Akun"];
+  const [activeTab, setActiveTab]   = useState<Tab>("transactions");
+  const [txFilter, setTxFilter]     = useState("Semua");
+  const [copied, setCopied]         = useState(false);
+  const [editMode, setEditMode]     = useState(false);
+  const [saving, setSaving]         = useState(false);
+  const [saveMsg, setSaveMsg]       = useState("");
 
-  const filteredTx = transactions.filter((t) => {
-    if (txFilter === "Top Up") return t.type === "topup";
-    if (txFilter === "Beli Akun") return t.type === "buy";
-    if (txFilter === "Jual Akun") return t.type === "sell";
-    return true;
-  });
+  // Form state
+  const [formName,  setFormName]  = useState("");
+  const [formPhone, setFormPhone] = useState("");
+  const [formBio,   setFormBio]   = useState("");
+
+  // Notification toggles (local UI only — bisa disambungkan ke DB)
+  const [notifTopup, setNotifTopup]   = useState(true);
+  const [notifSell,  setNotifSell]    = useState(true);
+  const [notifPromo, setNotifPromo]   = useState(false);
+
+  // Data from Supabase
+  const [orders,   setOrders]   = useState<any[]>([]);
+  const [listings, setListings] = useState<any[]>([]);
+  const [loadingOrders,   setLoadingOrders]   = useState(true);
+  const [loadingListings, setLoadingListings] = useState(true);
+
+  // Isi form dari profile
+  useEffect(() => {
+    if (profile) {
+      setFormName(profile.full_name  || "");
+      setFormPhone(profile.phone     || "");
+      setFormBio(profile.bio         || "");
+    }
+  }, [profile]);
+
+  // Fetch orders
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    setLoadingOrders(true);
+    getMyOrders(session.user.id, "buyer").then(({ data }) => {
+      setOrders(data || []);
+      setLoadingOrders(false);
+    });
+  }, [session?.user?.id]);
+
+  // Fetch listings
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    setLoadingListings(true);
+    getMyListings(session.user.id).then(({ data }) => {
+      setListings(data || []);
+      setLoadingListings(false);
+    });
+  }, [session?.user?.id]);
+
+  // Redirect kalau belum login
+  useEffect(() => {
+    if (!session && !user) navigate("/");
+  }, [session, user]);
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText("OKG-US12345");
+    const uid = session?.user?.id?.slice(0, 8).toUpperCase() || "UNKNOWN";
+    navigator.clipboard.writeText(`OKG-${uid}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const totalSpent = transactions.filter((t) => t.status === "success" && t.type !== "sell").reduce((a, b) => a + b.amount, 0);
-  const totalEarned = transactions.filter((t) => t.type === "sell" && t.status === "success").reduce((a, b) => a + b.amount, 0);
+  const handleSaveProfile = async () => {
+    if (!session?.user?.id) return;
+    setSaving(true);
+    const { error } = await updateProfile(session.user.id, {
+      full_name: formName,
+      phone:     formPhone,
+      bio:       formBio,
+    });
+    setSaving(false);
+    if (!error) {
+      setSaveMsg("✅ Profil berhasil disimpan");
+      setEditMode(false);
+      setTimeout(() => setSaveMsg(""), 3000);
+    } else {
+      setSaveMsg("❌ Gagal menyimpan: " + error.message);
+    }
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/");
+  };
+
+  // Derived stats
+  const txFilters   = ["Semua", "Beli", "Jual"];
+  const filteredTx  = orders.filter((o) => {
+    if (txFilter === "Beli") return o.buyer_id === session?.user?.id;
+    if (txFilter === "Jual") return o.seller_id === session?.user?.id;
+    return true;
+  });
+
+  const totalSpent  = orders.filter((o) => o.buyer_id  === session?.user?.id && ["completed","delivered"].includes(o.status)).reduce((a: number, b: any) => a + b.price, 0);
+  const totalEarned = orders.filter((o) => o.seller_id === session?.user?.id && ["completed","delivered"].includes(o.status)).reduce((a: number, b: any) => a + b.seller_amount, 0);
+  const activeCount = orders.filter((o) => ["paid","processing","waiting_payment","delivered"].includes(o.status)).length;
+
+  const displayName  = profile?.full_name || profile?.username || user?.name || "User";
+  const displayEmail = session?.user?.email || user?.email || "";
+  const displayAvatar = displayName.charAt(0).toUpperCase();
+  const joinDate = profile?.created_at ? new Date(profile.created_at).toLocaleDateString("id-ID", { month: "long", year: "numeric" }) : "";
+
+  if (!user && !session) return null;
 
   return (
     <div className="prof-root">
       <style>{STYLES}</style>
 
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────── */}
       <div className="prof-hero">
         <div className="prof-hero-bg" />
         <div className="prof-hero-grid" />
@@ -301,59 +335,81 @@ export default function Profile() {
             <div style={{ display: "flex", flexDirection: "row", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
               {/* Avatar */}
               <div className="prof-avatar" style={{ position: "relative" }}>
-                {user.avatar}
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt={displayName} />
+                  : displayAvatar
+                }
                 <div className="prof-avatar-cam"><Camera className="w-4 h-4" color="#666" /></div>
-                {user.verified && (
+                {profile?.is_verified_seller && (
                   <div className="prof-badge-verified"><CheckCircle className="w-4 h-4" color="#fff" /></div>
                 )}
               </div>
 
               {/* Info */}
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
                   <h1 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 32, fontWeight: 700, color: "#fff", margin: 0 }}>
-                    {user.name}
+                    {displayName}
                   </h1>
-                  <span style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#F59E0B", fontSize: 11, padding: "4px 10px", borderRadius: 6, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                    <Trophy className="w-3 h-3" /> {user.level}
-                  </span>
+                  {profile?.is_verified_seller && (
+                    <span style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: "#F59E0B", fontSize: 11, padding: "4px 10px", borderRadius: 6, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+                      <Trophy className="w-3 h-3" /> Verified Seller
+                    </span>
+                  )}
                 </div>
                 <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 13, margin: "0 0 12px" }}>
-                  {user.email} · Bergabung {user.joinDate}
+                  {displayEmail}{joinDate ? ` · Bergabung ${joinDate}` : ""}
                 </p>
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", fontSize: 13 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#F59E0B" }}>
-                    <Star className="w-4 h-4" fill="#F59E0B" />
-                    <span style={{ fontWeight: 700 }}>{user.rating}</span>
-                    <span style={{ color: "rgba(255,255,255,0.3)" }}>Rating</span>
-                  </div>
+                  {profile?.rating_sum && profile?.total_reviews && profile.total_reviews > 0 && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, color: "#F59E0B" }}>
+                        <Star className="w-4 h-4" fill="#F59E0B" />
+                        <span style={{ fontWeight: 700 }}>
+                          {(profile.rating_sum / profile.total_reviews).toFixed(1)}
+                        </span>
+                        <span style={{ color: "rgba(255,255,255,0.3)" }}>({profile.total_reviews} ulasan)</span>
+                      </div>
+                      <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                    </>
+                  )}
+                  <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                    <strong style={{ color: "#fff" }}>{profile?.total_sales ?? 0}</strong> Penjualan
+                  </span>
                   <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
-                  <span style={{ color: "rgba(255,255,255,0.6)" }}><strong style={{ color: "#fff" }}>{user.totalSales}</strong> Penjualan</span>
-                  <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
-                  <span style={{ color: "rgba(255,255,255,0.6)" }}><strong style={{ color: "#fff" }}>{user.totalBuy}</strong> Pembelian</span>
+                  <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                    <strong style={{ color: "#fff" }}>{orders.length}</strong> Pembelian
+                  </span>
+                  {profile?.username && (
+                    <>
+                      <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+                      <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "monospace" }}>@{profile.username}</span>
+                    </>
+                  )}
                 </div>
               </div>
 
               {/* Balance */}
-              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 16, textAlign: "right", backdropFilter: "blur(10px)" }}>
+              <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: 16, textAlign: "right" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 8, justifyContent: "flex-end" }}>
                   <Wallet className="w-3.5 h-3.5" /> Saldo OkeGass
                 </div>
                 <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 24, fontWeight: 700, color: "#10B981", marginBottom: 8 }}>
-                  {formatRupiah(user.balance)}
+                  {formatRupiah(profile?.balance ?? 0)}
                 </div>
-                <button style={{ background: "none", border: "none", color: "#EA580C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                <button onClick={() => navigate("/wallet")} className="prof-btn prof-btn-primary"
+                style={{ background: "none", border: "none", color: "#ed8739", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   + Top Up Saldo
                 </button>
               </div>
             </div>
 
-            {/* Stats Row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
+            {/* Stats */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
               {[
-                { label: "Total Pengeluaran", value: formatRupiah(totalSpent), icon: TrendingUp, color: "#3B82F6" },
-                { label: "Total Pendapatan", value: formatRupiah(totalEarned), icon: Wallet, color: "#10B981" },
-                { label: "Transaksi Aktif", value: `${transactions.filter((t) => t.status === "escrow" || t.status === "pending").length} Transaksi`, icon: Clock, color: "#F59E0B" },
+                { label: "Total Pengeluaran", value: loadingOrders ? "..." : formatRupiah(totalSpent), icon: TrendingUp, color: "#3B82F6" },
+                { label: "Total Pendapatan",  value: loadingOrders ? "..." : formatRupiah(totalEarned), icon: Wallet,     color: "#10B981" },
+                { label: "Transaksi Aktif",   value: loadingOrders ? "..." : `${activeCount} Transaksi`, icon: Clock,      color: "#F59E0B" },
               ].map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -372,87 +428,101 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* ── Content ──────────────────────────────────────────── */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px 60px" }}>
 
         {/* Tabs */}
         <div className="prof-tabs">
-          {[
-            { id: "transactions" as Tab, label: "Transaksi", icon: Package },
-            { id: "listings" as Tab, label: "Listing Saya", icon: Tag },
-            { id: "settings" as Tab, label: "Pengaturan", icon: Settings },
-          ].map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`prof-tab ${activeTab === tab.id ? "active" : ""}`}
-              >
-                <Icon className="w-4 h-4" /> {tab.label}
-              </button>
-            );
-          })}
+          {([
+            { id: "transactions", label: "Transaksi",    icon: Package },
+            { id: "listings",     label: "Listing Saya", icon: Tag },
+            { id: "settings",     label: "Pengaturan",   icon: Settings },
+          ] as { id: Tab; label: string; icon: any }[]).map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setActiveTab(id)} className={`prof-tab ${activeTab === id ? "active" : ""}`}>
+              <Icon className="w-4 h-4" /> {label}
+              {id === "transactions" && orders.length > 0 && (
+                <span style={{ background: "rgba(255,255,255,0.1)", borderRadius: 10, padding: "1px 7px", fontSize: 11 }}>
+                  {orders.length}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
-        {/* Transactions Tab */}
+        {/* ── TRANSACTIONS TAB ─────────────────────────────── */}
         {activeTab === "transactions" && (
           <div className="prof-animate">
-            {/* Filter */}
             <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
               {txFilters.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setTxFilter(f)}
-                  className={`prof-filter-btn ${txFilter === f ? "active" : ""}`}
-                >
-                  {f}
-                </button>
+                <button key={f} onClick={() => setTxFilter(f)} className={`prof-filter-btn ${txFilter === f ? "active" : ""}`}>{f}</button>
               ))}
             </div>
 
-            {/* Transaction List */}
             <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, overflow: "hidden" }}>
-              {filteredTx.length === 0 ? (
+              {loadingOrders ? (
+                <div style={{ padding: "40px 0", display: "flex", justifyContent: "center" }}>
+                  <Loader2 className="w-8 h-8" style={{ color: "#DC2626", animation: "spin 0.7s linear infinite" }} />
+                </div>
+              ) : filteredTx.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "60px 20px" }}>
                   <Package className="w-12 h-12" style={{ color: "rgba(255,255,255,0.1)", margin: "0 auto 12px", display: "block" }} />
-                  <p style={{ color: "rgba(255,255,255,0.3)", fontWeight: 700 }}>Tidak ada transaksi</p>
+                  <p style={{ color: "rgba(255,255,255,0.3)", fontWeight: 700 }}>Belum ada transaksi</p>
                 </div>
               ) : (
-                filteredTx.map((tx) => (
-                  <div key={tx.id} className="prof-tx-item">
-                    <div className="prof-tx-icon">{getTypeIcon(tx.type)}</div>
-                    <div className="prof-tx-info">
-                      <div className="prof-tx-title">{getTypeLabel(tx.type)} · {tx.game}</div>
-                      <div className="prof-tx-meta">{tx.item} · {tx.date} {tx.time}</div>
-                    </div>
-                    <div style={{ textAlign: "right", flex: "0 0 auto" }}>
-                      <div className="prof-tx-amount" style={{ color: tx.type === "sell" ? "#10B981" : "#fff" }}>
-                        {tx.type === "sell" ? "+" : "-"}{formatRupiah(tx.amount)}
+                filteredTx.map((order: any) => {
+                  const isBuyer  = order.buyer_id === session?.user?.id;
+                  const gameInfo = order.listings?.game_categories;
+                  const title    = order.listings?.title || "Akun Game";
+                  return (
+                    <div key={order.id} className="prof-tx-item">
+                      <div className="prof-tx-icon">
+                        {isBuyer
+                          ? <Package className="w-4 h-4" style={{ color: "#A78BFA" }} />
+                          : <Tag     className="w-4 h-4" style={{ color: "#10B981" }} />
+                        }
                       </div>
-                      <div className="prof-tx-status">{getStatusBadge(tx.status)}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {isBuyer ? "Beli" : "Jual"} · {gameInfo?.name || "Game"} {gameInfo?.icon || ""}
+                        </div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {title} · {formatDate(order.created_at)}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 15, fontWeight: 700, color: isBuyer ? "#fff" : "#10B981" }}>
+                          {isBuyer ? "-" : "+"}{formatRupiah(isBuyer ? order.price : order.seller_amount)}
+                        </div>
+                        <div style={{ marginTop: 4, display: "flex", justifyContent: "flex-end" }}>
+                          {getStatusBadge(order.status)}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4" style={{ color: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
                     </div>
-                    <ChevronRight className="w-4 h-4" style={{ color: "rgba(255,255,255,0.1)", flex: "0 0 auto" }} />
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
         )}
 
-        {/* Listings Tab */}
+        {/* ── LISTINGS TAB ─────────────────────────────────── */}
         {activeTab === "listings" && (
           <div className="prof-animate">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>{myListings.length} listing aktif</p>
-              <button
-                onClick={() => navigate("/marketplace/sell")}
-                className="prof-btn prof-btn-primary"
-              >
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", margin: 0 }}>
+                {listings.length} listing
+              </p>
+              <button onClick={() => navigate("/marketplace/sell")} className="prof-btn prof-btn-primary">
                 <Zap className="w-4 h-4" /> + Jual Akun Baru
               </button>
             </div>
 
-            {myListings.length === 0 ? (
+            {loadingListings ? (
+              <div style={{ display: "flex", justifyContent: "center", padding: "40px 0" }}>
+                <Loader2 className="w-8 h-8" style={{ color: "#DC2626", animation: "spin 0.7s linear infinite" }} />
+              </div>
+            ) : listings.length === 0 ? (
               <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, textAlign: "center", padding: "60px 20px" }}>
                 <Tag className="w-12 h-12" style={{ color: "rgba(255,255,255,0.1)", margin: "0 auto 12px", display: "block" }} />
                 <p style={{ color: "rgba(255,255,255,0.3)", fontWeight: 700, marginBottom: 8 }}>Belum ada listing</p>
@@ -461,21 +531,22 @@ export default function Profile() {
                 </button>
               </div>
             ) : (
-              myListings.map((listing) => (
+              listings.map((listing: any) => (
                 <div key={listing.id} className="prof-listing">
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", marginBottom: 4 }}>
-                        {listing.game} · {listing.rank}
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase" as const, marginBottom: 4 }}>
+                        {listing.game_categories?.name || "Game"} {listing.game_categories?.icon || ""}
+                        {listing.account_rank ? ` · ${listing.account_rank}` : ""}
                       </div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
                         {listing.title}
                       </div>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
-                        Dibuat {listing.date} · {listing.views} views
+                        {formatDate(listing.created_at)} · {listing.view_count} views
                       </div>
                     </div>
-                    <div style={{ textAlign: "right", flex: "0 0 auto" }}>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
                       {getStatusBadge(listing.status)}
                       <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 16, fontWeight: 700, color: "#DC2626", marginTop: 6 }}>
                         {formatRupiah(listing.price)}
@@ -483,10 +554,10 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  {listing.status === "pending" && (
+                  {listing.status === "draft" && (
                     <div style={{ display: "flex", gap: 8, alignItems: "flex-start", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, padding: 10, marginBottom: 12 }}>
-                      <AlertCircle className="w-4 h-4" style={{ color: "#3B82F6", flex: "0 0 auto", marginTop: 1 }} />
-                      <p style={{ fontSize: 11, color: "rgba(59,130,246,0.8)", margin: 0 }}>Listing sedang dalam proses verifikasi (1x24 jam)</p>
+                      <AlertCircle className="w-4 h-4" style={{ color: "#3B82F6", flexShrink: 0, marginTop: 1 }} />
+                      <p style={{ fontSize: 11, color: "rgba(59,130,246,0.8)", margin: 0 }}>Listing masih draft, belum tampil di marketplace</p>
                     </div>
                   )}
 
@@ -494,7 +565,7 @@ export default function Profile() {
                     <button className="prof-btn prof-btn-secondary">
                       <Edit3 className="w-3.5 h-3.5" /> Edit
                     </button>
-                    <button className="prof-btn prof-btn-secondary">
+                    <button className="prof-btn prof-btn-secondary" onClick={() => navigate(`/marketplace`)}>
                       <ExternalLink className="w-3.5 h-3.5" /> Lihat
                     </button>
                   </div>
@@ -504,82 +575,93 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Settings Tab */}
+        {/* ── SETTINGS TAB ─────────────────────────────────── */}
         {activeTab === "settings" && (
           <div className="prof-animate" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-            {/* Profile Settings */}
+            {/* Feedback message */}
+            {saveMsg && (
+              <div style={{ padding: "12px 16px", borderRadius: 10, background: saveMsg.startsWith("✅") ? "rgba(16,185,129,0.1)" : "rgba(220,38,38,0.1)", border: `1px solid ${saveMsg.startsWith("✅") ? "rgba(16,185,129,0.3)" : "rgba(220,38,38,0.3)"}`, color: saveMsg.startsWith("✅") ? "#10B981" : "#DC2626", fontSize: 13, fontWeight: 600 }}>
+                {saveMsg}
+              </div>
+            )}
+
+            {/* Profile Info */}
             <div className="prof-card">
               <div className="prof-card-header">
                 <h3 className="prof-card-title">Informasi Profil</h3>
                 <button
-                  onClick={() => setEditMode(!editMode)}
+                  onClick={editMode ? handleSaveProfile : () => setEditMode(true)}
                   className={`prof-btn ${editMode ? "prof-btn-primary" : "prof-btn-secondary"}`}
+                  disabled={saving}
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  {editMode ? "Simpan" : "Edit"}
+                  {saving
+                    ? <><Loader2 className="w-3.5 h-3.5" style={{ animation: "spin 0.7s linear infinite" }} /> Menyimpan...</>
+                    : <><Edit3 className="w-3.5 h-3.5" /> {editMode ? "Simpan" : "Edit"}</>
+                  }
                 </button>
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {/* Name */}
+                {/* Full Name */}
                 <div>
-                  <label className="prof-label">Nama Pengguna</label>
-                  {editMode ? (
-                    <input
-                      type="text"
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      className="prof-input"
-                    />
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
-                      <span style={{ color: "#fff", fontWeight: 700 }}>{formName}</span>
-                      <User className="w-4 h-4" color="rgba(255,255,255,0.2)" />
-                    </div>
-                  )}
+                  <label className="prof-label">Nama Lengkap</label>
+                  {editMode
+                    ? <input type="text" value={formName} onChange={(e) => setFormName(e.target.value)} className="prof-input" placeholder="Nama lengkap kamu" />
+                    : <InfoRow value={formName || displayName} icon={<User className="w-4 h-4" color="rgba(255,255,255,0.2)" />} />
+                  }
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label className="prof-label">Username</label>
+                  <InfoRow value={profile?.username ? `@${profile.username}` : "-"} />
                 </div>
 
                 {/* Email */}
                 <div>
                   <label className="prof-label">Email</label>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
-                    <span style={{ color: "#fff", fontWeight: 700 }}>{user.email}</span>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <CheckCircle className="w-4 h-4" color="#10B981" />
-                      <span style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>Terverifikasi</span>
-                    </div>
-                  </div>
+                  <InfoRow
+                    value={displayEmail}
+                    suffix={
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <CheckCircle className="w-4 h-4" color="#10B981" />
+                        <span style={{ fontSize: 11, color: "#10B981", fontWeight: 700 }}>Terverifikasi</span>
+                      </div>
+                    }
+                  />
                 </div>
 
                 {/* Phone */}
                 <div>
                   <label className="prof-label">Nomor WhatsApp</label>
-                  {editMode ? (
-                    <input
-                      type="tel"
-                      value={formPhone}
-                      onChange={(e) => setFormPhone(e.target.value)}
-                      className="prof-input"
-                    />
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
-                      <span style={{ color: "#fff", fontWeight: 700 }}>{formPhone}</span>
-                    </div>
-                  )}
+                  {editMode
+                    ? <input type="tel" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} className="prof-input" placeholder="08xxxxxxxxxx" />
+                    : <InfoRow value={formPhone || "Belum diisi"} />
+                  }
                 </div>
 
-                {/* Referral */}
+                {/* Bio */}
                 <div>
-                  <label className="prof-label">ID Referral</label>
+                  <label className="prof-label">Bio</label>
+                  {editMode
+                    ? <textarea value={formBio} onChange={(e) => setFormBio(e.target.value)} className="prof-input" rows={3} placeholder="Ceritakan sedikit tentang kamu..." style={{ resize: "vertical" }} />
+                    : <InfoRow value={formBio || "Belum ada bio"} />
+                  }
+                </div>
+
+                {/* Referral ID */}
+                <div>
+                  <label className="prof-label">ID Pengguna</label>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
-                    <span style={{ color: "#fff", fontWeight: 700, fontFamily: "monospace" }}>OKG-US12345</span>
+                    <span style={{ color: "#fff", fontWeight: 700, fontFamily: "monospace", fontSize: 13 }}>
+                      OKG-{session?.user?.id?.slice(0, 8).toUpperCase()}
+                    </span>
                     <button onClick={handleCopyId} style={{ background: "none", border: "none", color: "#DC2626", fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                       <Copy className="w-3.5 h-3.5" />
                       {copied ? "Disalin!" : "Salin"}
                     </button>
                   </div>
-                  <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 6 }}>Bagikan ke teman untuk mendapatkan komisi referral</p>
                 </div>
               </div>
             </div>
@@ -591,22 +673,18 @@ export default function Profile() {
                   <Bell className="w-5 h-5" /> Notifikasi
                 </h3>
               </div>
-
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {[
-                  { label: "Notifikasi Top Up", desc: "Status top up dan konfirmasi pembayaran", value: notifTopup, set: setNotifTopup },
-                  { label: "Notifikasi Transaksi Akun", desc: "Update status listing dan pembelian akun", value: notifSell, set: setNotifSell },
-                  { label: "Promo & Penawaran", desc: "Diskon, cashback, dan event spesial", value: notifPromo, set: setNotifPromo },
+                  { label: "Notifikasi Top Up",         desc: "Status top up dan konfirmasi pembayaran",     value: notifTopup, set: setNotifTopup },
+                  { label: "Notifikasi Transaksi Akun", desc: "Update status listing dan pembelian akun",    value: notifSell,  set: setNotifSell },
+                  { label: "Promo & Penawaran",         desc: "Diskon, cashback, dan event spesial",         value: notifPromo, set: setNotifPromo },
                 ].map((item) => (
                   <div key={item.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>{item.label}</div>
                       <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>{item.desc}</div>
                     </div>
-                    <button
-                      onClick={() => item.set(!item.value)}
-                      className={`prof-toggle ${item.value ? "on" : ""}`}
-                    >
+                    <button onClick={() => item.set(!item.value)} className={`prof-toggle ${item.value ? "on" : ""}`}>
                       <span className="prof-toggle-circle" />
                     </button>
                   </div>
@@ -621,19 +699,16 @@ export default function Profile() {
                   <Lock className="w-5 h-5" /> Keamanan
                 </h3>
               </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column" }}>
                 {[
-                  { label: "Ganti Password", icon: Lock, desc: "Terakhir diubah 3 bulan lalu" },
-                  { label: "Verifikasi 2 Faktor", icon: Shield, desc: "Belum aktif - Direkomendasikan" },
-                  { label: "Riwayat Login", icon: HelpCircle, desc: "Lihat aktivitas login terakhir" },
+                  { label: "Ganti Password",    icon: Lock,       desc: "Ubah password akun kamu" },
+                  { label: "Verifikasi 2FA",    icon: Shield,     desc: "Aktifkan untuk keamanan ekstra" },
+                  { label: "Riwayat Login",     icon: HelpCircle, desc: "Lihat aktivitas login terakhir" },
                 ].map((item, i) => {
                   const Icon = item.icon;
                   return (
                     <button key={item.label} className="prof-setting-item" style={{ borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-                      <div className="prof-setting-icon">
-                        <Icon className="w-4 h-4" style={{ color: "#DC2626" }} />
-                      </div>
+                      <div className="prof-setting-icon"><Icon className="w-4 h-4" style={{ color: "#DC2626" }} /></div>
                       <div style={{ flex: 1, textAlign: "left" }}>
                         <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, marginBottom: 2 }}>{item.label}</div>
                         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.3)" }}>{item.desc}</div>
@@ -645,20 +720,26 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Danger Zone */}
+            {/* Logout */}
             <div className="prof-danger">
-              <button
-                onClick={() => navigate("/")}
-                style={{ background: "none", border: "none", color: "#DC2626", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
-              >
-                <LogOut className="w-4 h-4" />
-                Keluar dari Akun
+              <button onClick={handleLogout} style={{ background: "none", border: "none", color: "#DC2626", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                <LogOut className="w-4 h-4" /> Keluar dari Akun
               </button>
             </div>
 
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Helper component ─────────────────────────────────────────────
+function InfoRow({ value, icon, suffix }: { value: string; icon?: React.ReactNode; suffix?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 14px", background: "rgba(255,255,255,0.04)", borderRadius: 10 }}>
+      <span style={{ color: value ? "#fff" : "rgba(255,255,255,0.25)", fontWeight: 600, fontSize: 13 }}>{value}</span>
+      {suffix || icon}
     </div>
   );
 }
