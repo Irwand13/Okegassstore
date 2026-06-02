@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Tidak ada session - clear all storage untuk clean state
           setUser(null);
           setProfile(null);
-          clearAllStorage();
+          // Jangan clear storage di sini - hanya clear saat logout manual
         }
 
         // Loading selesai setelah event pertama
@@ -182,21 +182,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  // ─── AUTO LOGOUT saat browser ditutup
-  useEffect(() => {
-    const handleBeforeUnload = async () => {
-      // Logout saat user close browser/tab
-      await supabase.auth.signOut();
-      clearAllStorage();
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
   }, []);
 
   // ─── LOGIN
