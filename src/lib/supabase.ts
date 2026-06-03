@@ -1,8 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
-
-// ✅ Support dua nama key: ANON_KEY (standar) atau PUBLISHABLE_KEY (format baru Supabase)
 const supabaseAnonKey = (
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
@@ -13,8 +11,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(
-  supabaseUrl      || 'https://placeholder.supabase.co',
-  supabaseAnonKey  || 'placeholder-key'
+  supabaseUrl     || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession:    true,
+      autoRefreshToken:  true,
+      detectSessionInUrl: true,
+    },
+  }
 )
 
 // ─── Types ────────────────────────────────────────────────────────
@@ -174,7 +179,7 @@ export const getProfile = async (userId: string) => {
 export const updateProfile = async (userId: string, payload: Partial<Profile>) => {
   const { data, error } = await supabase
     .from('profiles')
-    .update(payload)
+    .update({ ...payload, updated_at: new Date().toISOString() })
     .eq('id', userId)
     .select()
     .single()
@@ -203,10 +208,7 @@ export const getListings = async (filters?: {
 }) => {
   let query = supabase
     .from('listings')
-    .select(`
-      *,
-      game_categories (name, icon, color)
-    `)
+    .select(`*, game_categories (name, icon, color)`)
     .eq('status', 'active')
     .order('created_at', { ascending: false })
 
@@ -217,27 +219,23 @@ export const getListings = async (filters?: {
   if (filters?.offset)    query = query.range(filters.offset, filters.offset + (filters.limit ?? 20) - 1)
 
   const { data, error } = await query
-  
-  // Fetch seller profiles separately to avoid RLS issues
-  if (data) {
+
+  if (data && data.length > 0) {
     const sellerIds = [...new Set(data.map((l: any) => l.seller_id))]
-    if (sellerIds.length > 0) {
-      const { data: sellers } = await supabase
-        .from('profiles')
-        .select('id, full_name, username, avatar_url, is_verified_seller, rating_sum, total_reviews')
-        .in('id', sellerIds)
-      
-      // Merge seller data into listings
-      return {
-        data: data.map((listing: any) => ({
-          ...listing,
-          profiles: sellers?.find(s => s.id === listing.seller_id)
-        })),
-        error
-      }
+    const { data: sellers } = await supabase
+      .from('profiles')
+      .select('id, full_name, username, avatar_url, is_verified_seller, rating_sum, total_reviews')
+      .in('id', sellerIds)
+
+    return {
+      data: data.map((listing: any) => ({
+        ...listing,
+        profiles: sellers?.find((s: any) => s.id === listing.seller_id) ?? null,
+      })),
+      error,
     }
   }
-  
+
   return { data, error }
 }
 
@@ -246,13 +244,25 @@ export const getListingById = async (id: string) => {
     .from('listings')
     .select(`
       *,
-      profiles:seller_id (id, username, avatar_url, is_verified_seller, rating_sum, total_reviews, total_sales, created_at),
       game_categories:game_id (name, icon, color),
       listing_tags (tag)
     `)
     .eq('id', id)
     .single()
-  return { data, error }
+
+  if (error || !data) return { data, error }
+
+  // Fetch seller profile separately — hindari masalah RLS join
+  const { data: sellerProfile } = await supabase
+    .from('profiles')
+    .select('id, full_name, username, avatar_url, is_verified_seller, rating_sum, total_reviews, total_sales, created_at')
+    .eq('id', data.seller_id)
+    .single()
+
+  return {
+    data: { ...data, profiles: sellerProfile ?? null },
+    error,
+  }
 }
 
 export const getMyListings = async (sellerId: string) => {
@@ -283,8 +293,27 @@ export const updateListing = async (id: string, payload: Partial<Listing>) => {
   return { data, error }
 }
 
+// ✅ Safe incrementViewCount — tidak crash kalau RPC belum ada
 export const incrementViewCount = async (id: string) => {
-  await supabase.rpc('increment_view_count', { listing_id: id })
+  try {
+    const { error } = await supabase.rpc('increment_view_count', { listing_id: id })
+    if (error) {
+      // Fallback manual update
+      const { data: listing } = await supabase
+        .from('listings')
+        .select('view_count')
+        .eq('id', id)
+        .single()
+      if (listing) {
+        await supabase
+          .from('listings')
+          .update({ view_count: (listing.view_count || 0) + 1 })
+          .eq('id', id)
+      }
+    }
+  } catch {
+    // Silent fail — view count bukan fitur kritis
+  }
 }
 
 // ─── Orders ───────────────────────────────────────────────────────
@@ -327,7 +356,11 @@ export const getMyOrders = async (userId: string, role: 'buyer' | 'seller') => {
   return { data, error }
 }
 
-export const updateOrderStatus = async (orderId: string, status: Order['status'], extra?: Partial<Order>) => {
+export const updateOrderStatus = async (
+  orderId: string,
+  status: Order['status'],
+  extra?: Partial<Order>
+) => {
   const { data, error } = await supabase
     .from('orders')
     .update({ status, updated_at: new Date().toISOString(), ...extra })
@@ -342,10 +375,10 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 export const toggleWishlist = async (userId: string, listingId: string) => {
   const { data: existing } = await supabase
     .from('wishlists')
-    .select('*')
+    .select('id')
     .eq('user_id', userId)
     .eq('listing_id', listingId)
-    .single()
+    .maybeSingle()
 
   if (existing) {
     await supabase.from('wishlists').delete()
