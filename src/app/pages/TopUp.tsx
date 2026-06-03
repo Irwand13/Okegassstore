@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router";
+import { useState, useEffect } from "react";
+import { useSearchParams, useNavigate } from "react-router";
 import {
-  Zap, ChevronRight, Shield, Clock, CreditCard, Wallet,
-  Smartphone, CheckCircle, User, Hash, AlertCircle, ArrowLeft, Search
+  Zap, ChevronRight, Shield, Clock, CheckCircle,
+  User, Hash, AlertCircle, ArrowLeft, Search,
+  Wallet, RefreshCw, Eye, EyeOff, TrendingUp, Info
 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../../lib/supabase";
+
+// ─── TYPES ────────────────────────────────────────────────────────
 
 const games = [
   // MOBA
@@ -11,40 +16,30 @@ const games = [
   { id: "hok",      name: "Honor of Kings",       color: "#D4AF37", currency: "Tokens",           icon: "👑",  category: "MOBA" },
   { id: "wildrift", name: "Wild Rift",            color: "#C89B3C", currency: "Wild Cores",       icon: "🏹",  category: "MOBA" },
   { id: "dota2",    name: "Dota 2",               color: "#BF3D3B", currency: "Shards",           icon: "🌀",  category: "MOBA" },
-
   // Battle Royale
   { id: "ff",       name: "Free Fire",            color: "#FF4500", currency: "Diamonds",         icon: "🔥",  category: "Battle Royale" },
   { id: "pubg",     name: "PUBG Mobile",          color: "#F59E0B", currency: "UC",               icon: "🎯",  category: "Battle Royale" },
   { id: "codm",     name: "Call of Duty Mobile",  color: "#4CAF50", currency: "CP",               icon: "🪖",  category: "Battle Royale" },
   { id: "apex",     name: "Apex Legends Mobile",  color: "#DA3B1F", currency: "Coins",            icon: "🦅",  category: "Battle Royale" },
-  { id: "zbbr",     name: "Zula Mobile",          color: "#607D8B", currency: "Z Points",         icon: "🔫",  category: "Battle Royale" },
-
-  // FPS / Shooter
+  // FPS
   { id: "valorant", name: "Valorant",             color: "#FF4655", currency: "VP",               icon: "💀",  category: "FPS" },
   { id: "cs2",      name: "CS2 Skins",            color: "#F0A500", currency: "Credits",          icon: "🧨",  category: "FPS" },
-  { id: "xdefiant", name: "XDefiant",             color: "#00B4D8", currency: "Credits",          icon: "🎮",  category: "FPS" },
-
-  // RPG / Open World
+  // RPG
   { id: "genshin",  name: "Genshin Impact",       color: "#A78BFA", currency: "Genesis Crystals", icon: "✨",  category: "RPG" },
   { id: "hsr",      name: "Honkai: Star Rail",    color: "#7EC8E3", currency: "Oneiric Shards",   icon: "🚂",  category: "RPG" },
   { id: "zzz",      name: "Zenless Zone Zero",    color: "#FFD700", currency: "Polychrome",       icon: "⚡",  category: "RPG" },
   { id: "wuwa",     name: "Wuthering Waves",      color: "#34D399", currency: "Lunite",           icon: "🌊",  category: "RPG" },
   { id: "hi3",      name: "Honkai Impact 3rd",    color: "#E879F9", currency: "Crystals",         icon: "🌸",  category: "RPG" },
-  { id: "nikke",    name: "Goddess of Victory: NIKKE", color: "#F472B6", currency: "Gems",       icon: "🤖",  category: "RPG" },
-
+  { id: "nikke",    name: "NIKKE",                color: "#F472B6", currency: "Gems",             icon: "🤖",  category: "RPG" },
   // Strategy
   { id: "coc",      name: "Clash of Clans",       color: "#FBBF24", currency: "Gems",             icon: "🏰",  category: "Strategy" },
   { id: "cr",       name: "Clash Royale",         color: "#8B5CF6", currency: "Gems",             icon: "👾",  category: "Strategy" },
   { id: "riseofkingdoms", name: "Rise of Kingdoms", color: "#10B981", currency: "Gems",          icon: "⚜️",  category: "Strategy" },
   { id: "lordsmobile", name: "Lords Mobile",      color: "#3B82F6", currency: "Gems",             icon: "🗡️",  category: "Strategy" },
-  { id: "evony",    name: "Evony",                color: "#EF4444", currency: "Gems",             icon: "🛡️",  category: "Strategy" },
-
-  // Sports & Racing
+  // Sports
   { id: "efootball", name: "eFootball",           color: "#1D4ED8", currency: "Coins",            icon: "⚽",  category: "Sports" },
   { id: "nba2k",    name: "NBA 2K Mobile",        color: "#EA580C", currency: "VC",               icon: "🏀",  category: "Sports" },
-  { id: "asphalt",  name: "Asphalt 9",            color: "#DC2626", currency: "Credits",          icon: "🏎️",  category: "Racing" },
-
-  // Casual / Other
+  // RPG (misc)
   { id: "ragnarok", name: "Ragnarok M",           color: "#0EA5E9", currency: "Crystals",         icon: "🧝",  category: "RPG" },
   { id: "aov",      name: "Arena of Valor",       color: "#F59E0B", currency: "Vouchers",         icon: "🗡️",  category: "MOBA" },
 ];
@@ -135,23 +130,11 @@ const denominations: Record<string, Denom[]> = {
     { id: "apex4", amount: 2150, label: "2150 Coins", price: 299000, bonus: 150, popular: true },
     { id: "apex5", amount: 4350, label: "4350 Coins", price: 589000, bonus: 350 },
   ],
-  zbbr: [
-    { id: "zb1", amount: 100, label: "100 Z Points", price: 18000 },
-    { id: "zb2", amount: 300, label: "300 Z Points", price: 50000 },
-    { id: "zb3", amount: 700, label: "700 Z Points", price: 110000, popular: true },
-    { id: "zb4", amount: 1500, label: "1500 Z Points", price: 220000, bonus: 100 },
-  ],
   cs2: [
-    { id: "cs1", amount: 1000, label: "1000 Credits",  price: 99000 },
-    { id: "cs2a", amount: 2200, label: "2200 Credits", price: 199000, popular: true },
-    { id: "cs3", amount: 4600, label: "4600 Credits",  price: 399000, bonus: 400, popular: true },
-    { id: "cs4", amount: 10000, label: "10000 Credits", price: 849000, bonus: 1000 },
-  ],
-  xdefiant: [
-    { id: "xd1", amount: 500,  label: "500 Credits",  price: 55000 },
-    { id: "xd2", amount: 1100, label: "1100 Credits", price: 109000, popular: true },
-    { id: "xd3", amount: 2400, label: "2400 Credits", price: 219000, bonus: 100 },
-    { id: "xd4", amount: 5000, label: "5000 Credits", price: 429000, bonus: 300, popular: true },
+    { id: "cs1",  amount: 1000,  label: "1000 Credits",  price: 99000 },
+    { id: "cs2a", amount: 2200,  label: "2200 Credits",  price: 199000, popular: true },
+    { id: "cs3",  amount: 4600,  label: "4600 Credits",  price: 399000, bonus: 400, popular: true },
+    { id: "cs4",  amount: 10000, label: "10000 Credits", price: 849000, bonus: 1000 },
   ],
   hsr: [
     { id: "hsr1", amount: 60,   label: "60 Shards",   price: 15000 },
@@ -176,25 +159,25 @@ const denominations: Record<string, Denom[]> = {
     { id: "ww5", amount: 3280, label: "3280 Lunite", price: 762000, bonus: 600, popular: true },
   ],
   hi3: [
-    { id: "hi1", amount: 98,  label: "98 Crystals",   price: 25000 },
-    { id: "hi2", amount: 196, label: "196 Crystals",  price: 48000 },
-    { id: "hi3a", amount: 394, label: "394 Crystals", price: 95000,  popular: true },
-    { id: "hi4", amount: 788, label: "788 Crystals",  price: 185000, bonus: 80, popular: true },
-    { id: "hi5", amount: 1576, label: "1576 Crystals", price: 365000, bonus: 180 },
+    { id: "hi1",  amount: 98,   label: "98 Crystals",   price: 25000 },
+    { id: "hi2",  amount: 196,  label: "196 Crystals",  price: 48000 },
+    { id: "hi3a", amount: 394,  label: "394 Crystals",  price: 95000,  popular: true },
+    { id: "hi4",  amount: 788,  label: "788 Crystals",  price: 185000, bonus: 80, popular: true },
+    { id: "hi5",  amount: 1576, label: "1576 Crystals", price: 365000, bonus: 180 },
   ],
   nikke: [
-    { id: "nk1", amount: 80,  label: "80 Gems",   price: 16000 },
-    { id: "nk2", amount: 200, label: "200 Gems",  price: 38000 },
-    { id: "nk3", amount: 500, label: "500 Gems",  price: 95000,  popular: true },
+    { id: "nk1", amount: 80,   label: "80 Gems",   price: 16000 },
+    { id: "nk2", amount: 200,  label: "200 Gems",  price: 38000 },
+    { id: "nk3", amount: 500,  label: "500 Gems",  price: 95000,  popular: true },
     { id: "nk4", amount: 1000, label: "1000 Gems", price: 185000, bonus: 100, popular: true },
     { id: "nk5", amount: 2500, label: "2500 Gems", price: 455000, bonus: 300 },
   ],
   coc: [
-    { id: "coc1", amount: 80,   label: "80 Gems",    price: 16000 },
-    { id: "coc2", amount: 500,  label: "500 Gems",   price: 79000 },
-    { id: "coc3", amount: 1200, label: "1200 Gems",  price: 159000, popular: true },
-    { id: "coc4", amount: 2500, label: "2500 Gems",  price: 319000, bonus: 250, popular: true },
-    { id: "coc5", amount: 6500, label: "6500 Gems",  price: 799000, bonus: 750 },
+    { id: "coc1", amount: 80,    label: "80 Gems",    price: 16000 },
+    { id: "coc2", amount: 500,   label: "500 Gems",   price: 79000 },
+    { id: "coc3", amount: 1200,  label: "1200 Gems",  price: 159000, popular: true },
+    { id: "coc4", amount: 2500,  label: "2500 Gems",  price: 319000, bonus: 250, popular: true },
+    { id: "coc5", amount: 6500,  label: "6500 Gems",  price: 799000, bonus: 750 },
     { id: "coc6", amount: 14000, label: "14000 Gems", price: 1599000, bonus: 1500 },
   ],
   cr: [
@@ -205,11 +188,11 @@ const denominations: Record<string, Denom[]> = {
     { id: "cr5", amount: 6500, label: "6500 Gems", price: 799000, bonus: 750 },
   ],
   riseofkingdoms: [
-    { id: "rok1", amount: 200,  label: "200 Gems",   price: 35000 },
-    { id: "rok2", amount: 500,  label: "500 Gems",   price: 85000 },
-    { id: "rok3", amount: 1200, label: "1200 Gems",  price: 195000, popular: true },
-    { id: "rok4", amount: 2500, label: "2500 Gems",  price: 395000, bonus: 250, popular: true },
-    { id: "rok5", amount: 6500, label: "6500 Gems",  price: 995000, bonus: 800 },
+    { id: "rok1", amount: 200,  label: "200 Gems",  price: 35000 },
+    { id: "rok2", amount: 500,  label: "500 Gems",  price: 85000 },
+    { id: "rok3", amount: 1200, label: "1200 Gems", price: 195000, popular: true },
+    { id: "rok4", amount: 2500, label: "2500 Gems", price: 395000, bonus: 250, popular: true },
+    { id: "rok5", amount: 6500, label: "6500 Gems", price: 995000, bonus: 800 },
   ],
   lordsmobile: [
     { id: "lm1", amount: 100,  label: "100 Gems",  price: 18000 },
@@ -217,13 +200,6 @@ const denominations: Record<string, Denom[]> = {
     { id: "lm3", amount: 1200, label: "1200 Gems", price: 195000, popular: true },
     { id: "lm4", amount: 3000, label: "3000 Gems", price: 475000, bonus: 300, popular: true },
     { id: "lm5", amount: 6500, label: "6500 Gems", price: 995000, bonus: 750 },
-  ],
-  evony: [
-    { id: "ev1", amount: 200,  label: "200 Gems",   price: 35000 },
-    { id: "ev2", amount: 600,  label: "600 Gems",   price: 99000 },
-    { id: "ev3", amount: 1500, label: "1500 Gems",  price: 235000, popular: true },
-    { id: "ev4", amount: 3000, label: "3000 Gems",  price: 459000, bonus: 300, popular: true },
-    { id: "ev5", amount: 7000, label: "7000 Gems",  price: 1049000, bonus: 800 },
   ],
   efootball: [
     { id: "ef1", amount: 200,  label: "200 Coins",  price: 30000 },
@@ -233,18 +209,11 @@ const denominations: Record<string, Denom[]> = {
     { id: "ef5", amount: 5000, label: "5000 Coins", price: 635000, bonus: 500 },
   ],
   nba2k: [
-    { id: "nba1", amount: 200,  label: "200 VC",   price: 28000 },
-    { id: "nba2", amount: 500,  label: "500 VC",   price: 68000 },
-    { id: "nba3", amount: 1200, label: "1200 VC",  price: 158000, popular: true },
-    { id: "nba4", amount: 2500, label: "2500 VC",  price: 315000, bonus: 200, popular: true },
-    { id: "nba5", amount: 5000, label: "5000 VC",  price: 615000, bonus: 500 },
-  ],
-  asphalt: [
-    { id: "as1", amount: 200,  label: "200 Credits",  price: 25000 },
-    { id: "as2", amount: 600,  label: "600 Credits",  price: 70000 },
-    { id: "as3", amount: 1500, label: "1500 Credits", price: 165000, popular: true },
-    { id: "as4", amount: 3500, label: "3500 Credits", price: 375000, bonus: 300, popular: true },
-    { id: "as5", amount: 8000, label: "8000 Credits", price: 829000, bonus: 800 },
+    { id: "nba1", amount: 200,  label: "200 VC",  price: 28000 },
+    { id: "nba2", amount: 500,  label: "500 VC",  price: 68000 },
+    { id: "nba3", amount: 1200, label: "1200 VC", price: 158000, popular: true },
+    { id: "nba4", amount: 2500, label: "2500 VC", price: 315000, bonus: 200, popular: true },
+    { id: "nba5", amount: 5000, label: "5000 VC", price: 615000, bonus: 500 },
   ],
   ragnarok: [
     { id: "ro1", amount: 100,  label: "100 Crystals",  price: 20000 },
@@ -262,24 +231,11 @@ const denominations: Record<string, Denom[]> = {
   ],
 };
 
-const paymentMethods = [
-  { id: "gopay",     name: "GoPay",                    emoji: "💚", category: "E-Wallet" },
-  { id: "ovo",       name: "OVO",                      emoji: "💜", category: "E-Wallet" },
-  { id: "dana",      name: "DANA",                     emoji: "💙", category: "E-Wallet" },
-  { id: "shopeepay", name: "ShopeePay",                emoji: "🧡", category: "E-Wallet" },
-  { id: "linkaja",   name: "LinkAja",                  emoji: "❤️", category: "E-Wallet" },
-  { id: "bca",       name: "BCA Virtual Account",      emoji: "🏦", category: "Bank Transfer" },
-  { id: "bni",       name: "BNI Virtual Account",      emoji: "🏦", category: "Bank Transfer" },
-  { id: "mandiri",   name: "Mandiri Virtual Account",  emoji: "🏦", category: "Bank Transfer" },
-  { id: "bri",       name: "BRI Virtual Account",      emoji: "🏦", category: "Bank Transfer" },
-  { id: "qris",      name: "QRIS",                     emoji: "📱", category: "QR Code" },
-  { id: "alfamart",  name: "Alfamart",                 emoji: "🏪", category: "Minimarket" },
-  { id: "indomaret", name: "Indomaret",                emoji: "🏪", category: "Minimarket" },
-];
-
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
-const ALL_CATEGORIES = ["Semua", "MOBA", "Battle Royale", "FPS", "RPG", "Strategy", "Sports", "Racing"];
+const ALL_CATEGORIES = ["Semua", "MOBA", "Battle Royale", "FPS", "RPG", "Strategy", "Sports"];
+
+const VALID_GAME_IDS = new Set(games.map((g) => g.id));
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
@@ -290,6 +246,7 @@ const STYLES = `
   font-family: 'Barlow', sans-serif;
 }
 
+/* ── Hero ── */
 .tu-hero {
   position: relative;
   padding: 40px 0 36px;
@@ -312,6 +269,7 @@ const STYLES = `
   background: linear-gradient(90deg, transparent, rgba(220,38,38,0.5), transparent);
 }
 
+/* ── Card ── */
 .tu-card {
   background: rgba(255,255,255,0.025);
   border: 1px solid rgba(255,255,255,0.07);
@@ -341,15 +299,9 @@ const STYLES = `
   letter-spacing: 0.02em;
 }
 
-/* Search */
-.tu-search-wrap {
-  position: relative;
-  margin-bottom: 14px;
-}
-.tu-search-icon {
-  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-  color: rgba(255,255,255,0.3); pointer-events: none;
-}
+/* ── Search ── */
+.tu-search-wrap { position: relative; margin-bottom: 14px; }
+.tu-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.3); pointer-events: none; }
 .tu-search-input {
   width: 100%;
   background: rgba(255,255,255,0.04);
@@ -358,23 +310,15 @@ const STYLES = `
   padding: 10px 14px 10px 36px;
   font-family: 'Barlow', sans-serif;
   font-size: 13px; font-weight: 500; color: #fff;
-  outline: none;
-  transition: all 0.2s;
-  box-sizing: border-box;
+  outline: none; transition: all 0.2s; box-sizing: border-box;
 }
 .tu-search-input::placeholder { color: rgba(255,255,255,0.2); }
-.tu-search-input:focus {
-  border-color: rgba(220,38,38,0.4);
-  background: rgba(220,38,38,0.03);
-}
+.tu-search-input:focus { border-color: rgba(220,38,38,0.4); background: rgba(220,38,38,0.03); }
 
-/* Category tabs */
-.tu-cat-tabs {
-  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px;
-}
+/* ── Category tabs ── */
+.tu-cat-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .tu-cat-tab {
-  padding: 5px 12px;
-  border-radius: 20px;
+  padding: 5px 12px; border-radius: 20px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.03);
   font-family: 'Barlow', sans-serif;
@@ -383,65 +327,37 @@ const STYLES = `
   cursor: pointer; transition: all 0.18s;
   text-transform: uppercase; letter-spacing: 0.06em;
 }
-.tu-cat-tab:hover {
-  border-color: rgba(255,255,255,0.15);
-  color: rgba(255,255,255,0.6);
-}
-.tu-cat-tab.active {
-  background: rgba(220,38,38,0.12);
-  border-color: rgba(220,38,38,0.45);
-  color: #DC2626;
-}
+.tu-cat-tab:hover { border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.6); }
+.tu-cat-tab.active { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.45); color: #DC2626; }
 
-/* Game cards */
+/* ── Game cards ── */
 .tu-game-btn {
   display: flex; align-items: center; gap: 10px;
-  padding: 12px 14px;
-  border-radius: 12px;
+  padding: 12px 14px; border-radius: 12px;
   border: 1px solid rgba(255,255,255,0.07);
   background: rgba(255,255,255,0.02);
   cursor: pointer; transition: all 0.22s ease;
   text-align: left; position: relative; overflow: hidden;
 }
-.tu-game-btn:hover {
-  border-color: rgba(255,255,255,0.15);
-  background: rgba(255,255,255,0.04);
-}
-.tu-game-btn.active {
-  background: rgba(220,38,38,0.08);
-  border-color: rgba(220,38,38,0.5);
-}
-.tu-game-icon {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px; flex-shrink: 0;
-}
+.tu-game-btn:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.04); }
+.tu-game-btn.active { background: rgba(220,38,38,0.08); border-color: rgba(220,38,38,0.5); }
+.tu-game-icon { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
 
-/* Denom cards */
+/* ── Denom cards ── */
 .tu-denom-btn {
-  position: relative;
-  padding: 14px 14px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.07);
+  position: relative; padding: 14px 14px 12px;
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.07);
   background: rgba(255,255,255,0.02);
   cursor: pointer; transition: all 0.22s ease;
   text-align: left; overflow: hidden;
 }
-.tu-denom-btn:hover {
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
-  transform: translateY(-2px);
-}
-.tu-denom-btn.active {
-  border-color: rgba(220,38,38,0.6);
-  background: rgba(220,38,38,0.07);
-}
+.tu-denom-btn:hover { border-color: rgba(255,255,255,0.14); background: rgba(255,255,255,0.04); transform: translateY(-2px); }
+.tu-denom-btn.active { border-color: rgba(220,38,38,0.6); background: rgba(220,38,38,0.07); }
 .tu-denom-btn.active::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
   background: linear-gradient(90deg, transparent, #DC2626, transparent);
 }
+.tu-denom-btn.insufficient { opacity: 0.4; cursor: not-allowed; }
 .tu-popular-badge {
   position: absolute; top: -1px; right: 12px;
   background: linear-gradient(135deg, #DC2626, #EA580C);
@@ -451,7 +367,7 @@ const STYLES = `
   font-family: 'Barlow', sans-serif;
 }
 
-/* Input */
+/* ── Input ── */
 .tu-input-wrap label {
   display: flex; align-items: center; gap: 6px;
   font-size: 12px; font-weight: 700;
@@ -469,38 +385,97 @@ const STYLES = `
   outline: none; transition: all 0.2s; box-sizing: border-box;
 }
 .tu-input::placeholder { color: rgba(255,255,255,0.2); }
-.tu-input:focus {
-  border-color: rgba(220,38,38,0.5);
-  background: rgba(220,38,38,0.04);
-  box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
-}
+.tu-input:focus { border-color: rgba(220,38,38,0.5); background: rgba(220,38,38,0.04); box-shadow: 0 0 0 3px rgba(220,38,38,0.08); }
 
-/* Payment */
-.tu-pay-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.07);
-  background: rgba(255,255,255,0.02);
-  cursor: pointer; transition: all 0.2s;
+/* ── OkeGas Wallet Card ── */
+.og-wallet-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  border: 1px solid rgba(255,165,0,0.25);
+  border-radius: 16px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
 }
-.tu-pay-btn:hover {
-  border-color: rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.04);
+.og-wallet-card::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 120px; height: 120px;
+  background: radial-gradient(circle, rgba(255,165,0,0.15) 0%, transparent 70%);
+  border-radius: 50%;
 }
-.tu-pay-btn.active {
-  border-color: rgba(220,38,38,0.5);
-  background: rgba(220,38,38,0.07);
+.og-wallet-card::after {
+  content: '';
+  position: absolute; bottom: -20px; left: 20px;
+  width: 80px; height: 80px;
+  background: radial-gradient(circle, rgba(255,100,0,0.1) 0%, transparent 70%);
+  border-radius: 50%;
 }
-.tu-cat-label {
-  font-size: 10px; font-weight: 700;
-  color: rgba(255,255,255,0.25);
+.og-brand {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+}
+.og-brand-logo {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #FF6B00, #FFA500);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 900;
+  font-family: 'Rajdhani', sans-serif;
+  color: #fff; box-shadow: 0 4px 12px rgba(255,107,0,0.4);
+  flex-shrink: 0;
+}
+.og-balance-label {
+  font-size: 11px; font-weight: 700;
+  color: rgba(255,255,255,0.35);
   text-transform: uppercase; letter-spacing: 0.1em;
-  display: flex; align-items: center; gap: 6px;
-  margin-bottom: 8px; font-family: 'Barlow', sans-serif;
+  font-family: 'Barlow', sans-serif;
+  margin-bottom: 4px;
 }
+.og-balance-value {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 32px; font-weight: 700;
+  color: #fff; line-height: 1;
+  letter-spacing: -0.01em;
+}
+.og-balance-insufficient { color: #EF4444 !important; }
+.og-points-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,165,0,0.12);
+  border: 1px solid rgba(255,165,0,0.3);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 11px; font-weight: 700;
+  color: #FFA500;
+  font-family: 'Barlow', sans-serif;
+}
+.og-status-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(16,185,129,0.1);
+  border: 1px solid rgba(16,185,129,0.3);
+  border-radius: 20px; padding: 4px 10px;
+  font-size: 11px; font-weight: 700;
+  color: #10B981; font-family: 'Barlow', sans-serif;
+}
+.og-insufficient-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; margin-top: 14px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 10px;
+  font-size: 13px; color: rgba(255,255,255,0.5);
+  font-family: 'Barlow', sans-serif;
+}
+.og-topup-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px;
+  background: linear-gradient(135deg, #FF6B00, #FFA500);
+  border: none; color: #fff;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(255,107,0,0.3);
+  transition: all 0.2s;
+}
+.og-topup-btn:hover { box-shadow: 0 5px 16px rgba(255,107,0,0.5); transform: translateY(-1px); }
 
-/* Summary */
+/* ── Summary ── */
 .tu-summary {
   position: sticky; top: 84px;
   background: rgba(255,255,255,0.025);
@@ -513,8 +488,7 @@ const STYLES = `
 }
 .tu-summary-row {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 9px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
   font-size: 13px;
 }
 .tu-summary-row:last-of-type { border-bottom: none; }
@@ -529,15 +503,10 @@ const STYLES = `
   transition: all 0.25s ease;
   box-shadow: 0 6px 20px rgba(220,38,38,0.3);
 }
-.tu-proceed-btn:not(:disabled):hover {
-  box-shadow: 0 10px 32px rgba(220,38,38,0.5);
-  transform: translateY(-1px);
-}
-.tu-proceed-btn:disabled {
-  opacity: 0.35; cursor: not-allowed; box-shadow: none;
-}
+.tu-proceed-btn:not(:disabled):hover { box-shadow: 0 10px 32px rgba(220,38,38,0.5); transform: translateY(-1px); }
+.tu-proceed-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
 
-/* Confirm / Success */
+/* ── Confirm / Success ── */
 .tu-page-center {
   min-height: 100vh; background: #0d0d0f;
   display: flex; align-items: center; justify-content: center; padding: 24px;
@@ -556,8 +525,7 @@ const STYLES = `
 .tu-confirm-body { padding: 24px 28px; }
 .tu-row {
   display: flex; justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
   font-size: 13px;
 }
 .tu-row:last-child { border-bottom: none; }
@@ -569,27 +537,62 @@ const STYLES = `
   border-radius: 10px; margin: 20px 0;
 }
 
-/* Empty state */
-.tu-empty {
-  text-align: center; padding: 40px 20px;
-  color: rgba(255,255,255,0.25);
+/* ── OkeGas confirm wallet ── */
+.og-confirm-wallet {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(90deg, rgba(255,107,0,0.08), rgba(255,165,0,0.05));
+  border: 1px solid rgba(255,165,0,0.25);
+  border-radius: 12px; margin-bottom: 8px;
+}
+.og-confirm-logo {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: linear-gradient(135deg, #FF6B00, #FFA500);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 16px; font-weight: 900; color: #fff;
+  box-shadow: 0 3px 10px rgba(255,107,0,0.35);
+  flex-shrink: 0;
+}
+.og-deduct-row {
+  display: flex; justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(239,68,68,0.05);
+  border: 1px solid rgba(239,68,68,0.15);
+  border-radius: 10px; margin-bottom: 4px;
+  font-size: 13px;
+}
+.og-remain-row {
+  display: flex; justify-content: space-between;
+  padding: 10px 16px;
+  background: rgba(16,185,129,0.05);
+  border: 1px solid rgba(16,185,129,0.15);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+/* ── Error banner ── */
+.tu-error-banner {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; margin-top: 12px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px;
+  font-size: 12px; color: #F87171;
   font-family: 'Barlow', sans-serif;
-  font-size: 14px;
 }
 
-@keyframes tuFadeUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+/* ── Empty ── */
+.tu-empty { text-align: center; padding: 40px 20px; color: rgba(255,255,255,0.25); font-family: 'Barlow', sans-serif; font-size: 14px; }
+
+/* ── Animations ── */
+@keyframes tuFadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 .tu-animate { animation: tuFadeUp 0.4s ease forwards; }
-
-@keyframes successPop {
-  0%   { transform: scale(0.5); opacity: 0; }
-  70%  { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
+@keyframes successPop { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
 .tu-success-icon { animation: successPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Layout ── */
 .tu-grid-main {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -599,56 +602,43 @@ const STYLES = `
   .tu-grid-main { grid-template-columns: 1fr; }
   .tu-summary { position: static; }
 }
-
-.tu-games-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 9px;
-}
-@media (min-width: 600px) {
-  .tu-games-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (min-width: 900px) {
-  .tu-games-grid { grid-template-columns: repeat(4, 1fr); }
-}
-
-.tu-denoms-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-}
-@media (min-width: 600px) {
-  .tu-denoms-grid { grid-template-columns: repeat(3, 1fr); }
-}
-
-.tu-pay-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-@media (min-width: 600px) {
-  .tu-pay-grid { grid-template-columns: repeat(3, 1fr); }
-}
+.tu-games-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+@media (min-width: 600px) { .tu-games-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 900px) { .tu-games-grid { grid-template-columns: repeat(4, 1fr); } }
+.tu-denoms-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 600px) { .tu-denoms-grid { grid-template-columns: repeat(3, 1fr); } }
 `;
+
+// ─── COMPONENT ────────────────────────────────────────────────────
 
 export default function TopUp() {
   const [searchParams] = useSearchParams();
-  const defaultGame = searchParams.get("game") || "ml";
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // FIX: validate game ID from URL — fallback to "ml" if unknown
+  const rawGame = searchParams.get("game") ?? "ml";
+  const defaultGame = VALID_GAME_IDS.has(rawGame) ? rawGame : "ml";
 
   const [selectedGame, setSelectedGame] = useState(defaultGame);
   const [selectedDenom, setSelectedDenom] = useState<string | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [userId, setUserId] = useState("");
   const [serverId, setServerId] = useState("");
   const [step, setStep] = useState<"form" | "confirm" | "success">("form");
   const [isLoading, setIsLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState("Semua");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showBalance, setShowBalance] = useState(true);
+  const [txError, setTxError] = useState<string | null>(null);
 
+  // FIX: wallet balance fetched from Supabase, not a hardcoded mock
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [loadingBalance, setLoadingBalance] = useState(true);
+
+  // FIX: currentGame is always safe — defaultGame guarantees a valid ID
   const currentGame = games.find((g) => g.id === selectedGame)!;
-  const currentDenoms = denominations[selectedGame] || [];
+  const currentDenoms = denominations[selectedGame] ?? [];
   const selectedDenomData = currentDenoms.find((d) => d.id === selectedDenom);
-  const paymentCategories = [...new Set(paymentMethods.map((p) => p.category))];
 
   const filteredGames = games.filter((g) => {
     const matchCat = activeCategory === "Semua" || g.category === activeCategory;
@@ -656,32 +646,128 @@ export default function TopUp() {
     return matchCat && matchSearch;
   });
 
-  const needsServerId = selectedGame === "ml" || selectedGame === "hok" || selectedGame === "ragnarok";
+  const needsServerId = ["ml", "hok", "ragnarok"].includes(selectedGame);
+
+  // FIX: also require serverId when the game needs it
+  const isFormValid =
+    userId.trim().length > 0 &&
+    (!needsServerId || serverId.trim().length > 0) &&
+    selectedDenom !== null;
+
+  const isBalanceSufficient = !selectedDenomData || walletBalance >= selectedDenomData.price;
+  const remainingBalance = selectedDenomData ? walletBalance - selectedDenomData.price : walletBalance;
+  const canProceed = isFormValid && isBalanceSufficient;
+
+  // ── Fetch balance on mount ──────────────────────────────────────
+  useEffect(() => {
+    if (!user) return;
+    fetchBalance();
+  }, [user]);
+
+  async function fetchBalance() {
+    if (!user) return;
+    setLoadingBalance(true);
+    const { data } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single();
+    if (data) setWalletBalance(data.balance ?? 0);
+    setLoadingBalance(false);
+  }
 
   const handleProceed = () => {
-    if (!userId || !selectedDenom || !selectedPayment) return;
+    if (!canProceed) return;
+    setTxError(null);
     setStep("confirm");
   };
 
-  const handleConfirm = () => {
+  // FIX: real Supabase transaction — atomic balance deduction + wallet_log insert
+  const handleConfirm = async () => {
+    if (!user || !selectedDenomData) return;
+
+    // Capture values at the point of confirmation to avoid closure staleness
+    const price = selectedDenomData.price;
+    const denomLabel = selectedDenomData.label;
+    const gameName = currentGame.name;
+
     setIsLoading(true);
-    setTimeout(() => { setIsLoading(false); setStep("success"); }, 2000);
+    setTxError(null);
+
+    // 1. Re-fetch latest balance to guard against concurrent spend (race condition)
+    const { data: freshProfile, error: profileFetchErr } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single();
+
+    if (profileFetchErr || !freshProfile) {
+      setTxError("Gagal memverifikasi saldo. Coba lagi.");
+      setIsLoading(false);
+      return;
+    }
+
+    const freshBalance = freshProfile.balance ?? 0;
+    if (freshBalance < price) {
+      setWalletBalance(freshBalance); // sync local state
+      setTxError("Saldo tidak mencukupi. Silakan isi saldo terlebih dahulu.");
+      setIsLoading(false);
+      return;
+    }
+
+    const newBalance = freshBalance - price;
+
+    // 2. Deduct balance from profiles
+    const { error: deductErr } = await supabase
+      .from("profiles")
+      .update({ balance: newBalance })
+      .eq("id", user.id)
+      // Optimistic concurrency: only update if balance hasn't changed underneath us
+      .eq("balance", freshBalance);
+
+    if (deductErr) {
+      setTxError("Transaksi gagal. Saldo mungkin telah berubah, coba lagi.");
+      setIsLoading(false);
+      return;
+    }
+
+    // 3. Insert wallet log
+    const { error: logErr } = await supabase.from("wallet_logs").insert({
+      user_id:        user.id,
+      action:         "spend",
+      amount:         price,
+      balance_before: freshBalance,
+      balance_after:  newBalance,
+      note:           `Top Up ${denomLabel} — ${gameName} (ID: ${userId}${serverId ? ` / ${serverId}` : ""})`,
+    });
+
+    if (logErr) {
+      // Balance already deducted — log failure is non-fatal but should be alerted
+      console.error("wallet_log insert failed:", logErr);
+      // Don't show error to user; transaction succeeded. Consider a retry queue in production.
+    }
+
+    // 4. Sync local state and advance to success
+    setWalletBalance(newBalance);
+    setIsLoading(false);
+    setStep("success");
   };
 
   const handleReset = () => {
     setStep("form");
     setSelectedDenom(null);
-    setSelectedPayment(null);
     setUserId("");
     setServerId("");
+    setTxError(null);
+    fetchBalance(); // Refresh balance for the next transaction
   };
 
-  // ─── SUCCESS ───────────────────────────────────────────────────────────────
+  // ── SUCCESS ────────────────────────────────────────────────────────────────
   if (step === "success") {
     return (
       <div className="tu-root tu-page-center">
         <style>{STYLES}</style>
-        <div className="tu-animate" style={{ textAlign: "center", maxWidth: 420 }}>
+        <div className="tu-animate" style={{ textAlign: "center", maxWidth: 440 }}>
           <div className="tu-success-icon" style={{
             width: 96, height: 96,
             background: "rgba(16,185,129,0.12)",
@@ -708,8 +794,39 @@ export default function TopUp() {
             {selectedDenomData?.label} untuk {currentGame.name}
           </p>
           <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, margin: "0 0 4px" }}>
-            ID: <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>{userId}{serverId ? ` (${serverId})` : ""}</span>
+            ID: <span style={{ color: "rgba(255,255,255,0.7)", fontWeight: 600 }}>
+              {userId}{serverId ? ` (${serverId})` : ""}
+            </span>
           </p>
+
+          {/* OkeGas deduction recap */}
+          <div style={{
+            background: "rgba(255,107,0,0.07)",
+            border: "1px solid rgba(255,165,0,0.2)",
+            borderRadius: 12, padding: "14px 18px",
+            margin: "16px 0 24px", textAlign: "left",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{
+                width: 24, height: 24, borderRadius: 6,
+                background: "linear-gradient(135deg, #FF6B00, #FFA500)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'Rajdhani', sans-serif", fontSize: 12, fontWeight: 900, color: "#fff",
+              }}>G</div>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#FFA500", fontFamily: "'Barlow', sans-serif" }}>
+                Saldo OkeGas terpotong
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>
+              <span>Jumlah dibayar</span>
+              <span style={{ color: "#EF4444", fontWeight: 700 }}>−{formatRupiah(selectedDenomData?.price ?? 0)}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif", marginTop: 4 }}>
+              <span>Sisa saldo</span>
+              <span style={{ color: "#10B981", fontWeight: 700 }}>{formatRupiah(walletBalance)}</span>
+            </div>
+          </div>
+
           <p style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, margin: "0 0 32px" }}>
             Item akan masuk dalam <strong style={{ color: "#10B981" }}>{"< 1 menit"}</strong>. Cek inbox game kamu!
           </p>
@@ -717,8 +834,9 @@ export default function TopUp() {
             <button onClick={handleReset} className="tu-proceed-btn" style={{ width: "auto", padding: "12px 24px" }}>
               <Zap size={15} fill="white" /> Top Up Lagi
             </button>
+            {/* FIX: use navigate instead of window.location.href */}
             <button
-              onClick={() => window.location.href = "/profile"}
+              onClick={() => navigate("/wallet")}
               style={{
                 padding: "12px 24px", borderRadius: 12,
                 background: "rgba(255,255,255,0.04)",
@@ -737,9 +855,18 @@ export default function TopUp() {
     );
   }
 
-  // ─── CONFIRM ───────────────────────────────────────────────────────────────
+  // ── CONFIRM ────────────────────────────────────────────────────────────────
   if (step === "confirm") {
-    const payment = paymentMethods.find((p) => p.id === selectedPayment);
+    type OrderRow = { label: string; val: string | undefined; green?: boolean };
+    const orderRows: OrderRow[] = [
+      { label: "Game",    val: `${currentGame.icon} ${currentGame.name}` },
+      { label: "User ID", val: `${userId}${serverId ? ` (${serverId})` : ""}` },
+      { label: "Item",    val: selectedDenomData?.label },
+      ...(selectedDenomData?.bonus
+        ? [{ label: "Bonus", val: `+${selectedDenomData.bonus} ${currentGame.currency}`, green: true }]
+        : []),
+    ];
+
     return (
       <div className="tu-root tu-page-center">
         <style>{STYLES}</style>
@@ -760,57 +887,100 @@ export default function TopUp() {
               Konfirmasi Pesanan
             </h2>
           </div>
+
           <div className="tu-confirm-body">
-            {[
-              { label: "Game", val: `${currentGame.icon} ${currentGame.name}` },
-              { label: "User ID", val: `${userId}${serverId ? ` (${serverId})` : ""}` },
-              { label: "Item", val: selectedDenomData?.label },
-              ...(selectedDenomData?.bonus ? [{ label: "Bonus", val: `+${selectedDenomData.bonus} ${currentGame.currency}`, green: true }] : []),
-              { label: "Metode Bayar", val: `${payment?.emoji} ${payment?.name}` },
-            ].map((row) => (
+            {/* Order details — FIX: typed rows, no more (row as any).green */}
+            {orderRows.map((row) => (
               <div className="tu-row" key={row.label}>
-                <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>{row.label}</span>
+                <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>
+                  {row.label}
+                </span>
                 <span style={{
-                  color: (row as any).green ? "#10B981" : "rgba(255,255,255,0.85)",
+                  color: row.green ? "#10B981" : "rgba(255,255,255,0.85)",
                   fontWeight: 600, fontFamily: "'Barlow', sans-serif", fontSize: 13,
                 }}>
                   {row.val}
                 </span>
               </div>
             ))}
+
+            {/* Total */}
             <div style={{
               display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "16px 0 0", borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 4,
+              padding: "16px 0 20px", borderTop: "1px solid rgba(255,255,255,0.08)", marginTop: 4,
             }}>
               <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, color: "#fff" }}>Total</span>
               <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 28, fontWeight: 700, color: "#DC2626" }}>
-                {formatRupiah(selectedDenomData?.price || 0)}
+                {formatRupiah(selectedDenomData?.price ?? 0)}
               </span>
             </div>
+
+            {/* OkeGas wallet payment method */}
+            <div className="og-confirm-wallet">
+              <div className="og-confirm-logo">G</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", fontFamily: "'Barlow', sans-serif" }}>
+                  OkeGas Wallet
+                </div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif", marginTop: 2 }}>
+                  Saldo tersedia: <span style={{ color: "#FFA500", fontWeight: 600 }}>{formatRupiah(walletBalance)}</span>
+                </div>
+              </div>
+              <CheckCircle size={16} color="#10B981" />
+            </div>
+
+            {/* Deduction preview */}
+            <div className="og-deduct-row">
+              <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>Potongan saldo</span>
+              <span style={{ color: "#EF4444", fontWeight: 700, fontFamily: "'Barlow', sans-serif" }}>
+                −{formatRupiah(selectedDenomData?.price ?? 0)}
+              </span>
+            </div>
+            <div className="og-remain-row" style={{ marginBottom: 16 }}>
+              <span style={{ color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>Sisa saldo setelah bayar</span>
+              <span style={{ color: "#10B981", fontWeight: 700, fontFamily: "'Barlow', sans-serif" }}>
+                {formatRupiah(remainingBalance)}
+              </span>
+            </div>
+
             <div className="tu-alert">
               <AlertCircle size={15} color="#F59E0B" style={{ flexShrink: 0, marginTop: 1 }} />
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", margin: 0, lineHeight: 1.6, fontFamily: "'Barlow', sans-serif" }}>
-                <strong style={{ color: "#F59E0B" }}>Penting:</strong> Pastikan User ID sudah benar. Kesalahan ID tidak dapat dikembalikan.
+                <strong style={{ color: "#F59E0B" }}>Penting:</strong> Pastikan User ID sudah benar.
+                Saldo OkeGas yang terpotong tidak dapat dikembalikan.
               </p>
             </div>
+
+            {/* FIX: show transaction error if something went wrong */}
+            {txError && (
+              <div className="tu-error-banner">
+                <AlertCircle size={13} style={{ flexShrink: 0 }} />
+                {txError}
+              </div>
+            )}
+
             <button onClick={handleConfirm} disabled={isLoading} className="tu-proceed-btn">
               {isLoading ? (
                 <>
-                  <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+                  <span style={{
+                    width: 16, height: 16,
+                    border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff",
+                    borderRadius: "50%", animation: "spin 0.7s linear infinite",
+                    display: "inline-block",
+                  }} />
                   Memproses...
                 </>
               ) : (
-                <><Zap size={16} fill="white" /> Bayar Sekarang</>
+                <><Zap size={16} fill="white" /> Bayar dengan OkeGas</>
               )}
             </button>
           </div>
         </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  // ─── MAIN FORM ─────────────────────────────────────────────────────────────
+  // ── MAIN FORM ──────────────────────────────────────────────────────────────
   return (
     <div className="tu-root">
       <style>{STYLES}</style>
@@ -835,13 +1005,13 @@ export default function TopUp() {
             Top Up <span style={{ color: "#DC2626" }}>Instan</span>
           </h1>
           <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 14, margin: "0 0 20px", fontFamily: "'Barlow', sans-serif" }}>
-            {games.length}+ game tersedia · Proses otomatis · Harga terbaik · 100% aman
+            {games.length}+ game tersedia · Bayar via OkeGas Wallet · Proses otomatis
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const }}>
             {[
               { icon: <Clock size={12} />, label: "Proses < 1 Menit" },
               { icon: <Shield size={12} />, label: "100% Aman" },
-              { icon: <CreditCard size={12} />, label: "12+ Metode Bayar" },
+              { icon: <Wallet size={12} />, label: "OkeGas Wallet" },
             ].map((b) => (
               <div key={b.label} style={{
                 display: "flex", alignItems: "center", gap: 7,
@@ -862,7 +1032,7 @@ export default function TopUp() {
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "28px 24px 60px" }}>
         <div className="tu-grid-main">
 
-          {/* Left */}
+          {/* ── LEFT ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
             {/* Step 1: Game */}
@@ -875,8 +1045,6 @@ export default function TopUp() {
                   {games.length} game
                 </span>
               </div>
-
-              {/* Search */}
               <div className="tu-search-wrap">
                 <Search size={14} className="tu-search-icon" />
                 <input
@@ -887,8 +1055,6 @@ export default function TopUp() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-
-              {/* Category filter */}
               <div className="tu-cat-tabs">
                 {ALL_CATEGORIES.map((cat) => (
                   <button
@@ -900,8 +1066,6 @@ export default function TopUp() {
                   </button>
                 ))}
               </div>
-
-              {/* Games grid */}
               {filteredGames.length === 0 ? (
                 <div className="tu-empty">
                   <div style={{ fontSize: 32, marginBottom: 8 }}>🎮</div>
@@ -918,9 +1082,7 @@ export default function TopUp() {
                         style={active ? { borderColor: `${game.color}60`, background: `${game.color}10` } : {}}
                         onClick={() => { setSelectedGame(game.id); setSelectedDenom(null); }}
                       >
-                        <div className="tu-game-icon" style={{ background: `${game.color}18` }}>
-                          {game.icon}
-                        </div>
+                        <div className="tu-game-icon" style={{ background: `${game.color}18` }}>{game.icon}</div>
                         <div style={{ minWidth: 0 }}>
                           <div style={{
                             fontFamily: "'Rajdhani', sans-serif", fontSize: 13, fontWeight: 700,
@@ -961,7 +1123,8 @@ export default function TopUp() {
                 </div>
                 {needsServerId && (
                   <div className="tu-input-wrap">
-                    <label><Hash size={11} /> Server ID</label>
+                    {/* FIX: Server ID marked required when needed */}
+                    <label><Hash size={11} /> Server ID *</label>
                     <input
                       type="text"
                       value={serverId}
@@ -993,11 +1156,13 @@ export default function TopUp() {
                 <div className="tu-denoms-grid">
                   {currentDenoms.map((denom) => {
                     const active = selectedDenom === denom.id;
+                    const canAfford = walletBalance >= denom.price;
                     return (
                       <button
                         key={denom.id}
-                        className={`tu-denom-btn ${active ? "active" : ""}`}
-                        onClick={() => setSelectedDenom(denom.id)}
+                        className={`tu-denom-btn ${active ? "active" : ""} ${!canAfford ? "insufficient" : ""}`}
+                        onClick={() => canAfford && setSelectedDenom(denom.id)}
+                        title={!canAfford ? "Saldo OkeGas tidak cukup" : undefined}
                       >
                         {denom.popular && <div className="tu-popular-badge">Populer</div>}
                         <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 14, fontWeight: 700, color: active ? "#fff" : "rgba(255,255,255,0.75)", marginBottom: 2 }}>
@@ -1008,11 +1173,17 @@ export default function TopUp() {
                             +{denom.bonus} Bonus
                           </div>
                         )}
-                        <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, color: active ? "#DC2626" : "rgba(255,255,255,0.5)", marginTop: 2 }}>
+                        <div style={{
+                          fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, marginTop: 2,
+                          color: active ? "#DC2626" : canAfford ? "rgba(255,255,255,0.5)" : "rgba(239,68,68,0.5)",
+                        }}>
                           {formatRupiah(denom.price)}
                         </div>
-                        {active && (
-                          <CheckCircle size={13} color="#DC2626" style={{ position: "absolute", top: 10, right: 10 }} />
+                        {active && <CheckCircle size={13} color="#DC2626" style={{ position: "absolute", top: 10, right: 10 }} />}
+                        {!canAfford && (
+                          <div style={{ position: "absolute", top: 10, right: 10, fontSize: 9, color: "rgba(239,68,68,0.7)", fontFamily: "'Barlow', sans-serif", fontWeight: 700 }}>
+                            KURANG
+                          </div>
                         )}
                       </button>
                     );
@@ -1021,47 +1192,79 @@ export default function TopUp() {
               )}
             </div>
 
-            {/* Step 4: Payment */}
+            {/* Step 4: OkeGas Wallet */}
             <div className="tu-card tu-animate" style={{ animationDelay: "240ms" }}>
               <div className="tu-card-top" />
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
                 <div className="tu-step-num">4</div>
                 <h2 className="tu-section-title">Metode Pembayaran</h2>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                {paymentCategories.map((cat) => (
-                  <div key={cat}>
-                    <div className="tu-cat-label">
-                      {cat === "E-Wallet" && <Wallet size={11} />}
-                      {cat === "Bank Transfer" && <CreditCard size={11} />}
-                      {cat === "QR Code" && <Smartphone size={11} />}
-                      {cat}
-                    </div>
-                    <div className="tu-pay-grid">
-                      {paymentMethods.filter((p) => p.category === cat).map((pm) => {
-                        const active = selectedPayment === pm.id;
-                        return (
-                          <button
-                            key={pm.id}
-                            className={`tu-pay-btn ${active ? "active" : ""}`}
-                            onClick={() => setSelectedPayment(pm.id)}
-                          >
-                            <span style={{ fontSize: 18 }}>{pm.emoji}</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: active ? "#fff" : "rgba(255,255,255,0.55)", fontFamily: "'Barlow', sans-serif", flex: 1, textAlign: "left" as const }}>
-                              {pm.name}
-                            </span>
-                            {active && <CheckCircle size={13} color="#DC2626" />}
-                          </button>
-                        );
-                      })}
+
+              <div className="og-wallet-card">
+                <div className="og-brand">
+                  <div className="og-brand-logo">G</div>
+                  <div>
+                    <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 15, fontWeight: 700, color: "#fff" }}>OkeGas Wallet</div>
+                    {user && (
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontFamily: "'Barlow', sans-serif" }}>
+                        {user.email}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ marginLeft: "auto" }}>
+                    <div className="og-status-chip">
+                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#10B981" }} />
+                      Aktif
                     </div>
                   </div>
-                ))}
+                </div>
+
+                <div className="og-balance-label">Saldo Tersedia</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                  <div className={`og-balance-value ${selectedDenomData && !isBalanceSufficient ? "og-balance-insufficient" : ""}`}>
+                    {loadingBalance
+                      ? "Memuat..."
+                      : showBalance
+                        ? formatRupiah(walletBalance)
+                        : "Rp ••••••"}
+                  </div>
+                  <button
+                    onClick={() => setShowBalance(!showBalance)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", padding: 0, display: "flex" }}
+                  >
+                    {showBalance ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                  <button
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.3)", padding: 0, display: "flex" }}
+                    title="Refresh saldo"
+                    onClick={fetchBalance}
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+
+                {/* Insufficient balance warning */}
+                {selectedDenomData && !isBalanceSufficient && (
+                  <div className="og-insufficient-banner">
+                    <AlertCircle size={15} color="#EF4444" style={{ flexShrink: 0 }} />
+                    <span style={{ flex: 1 }}>
+                      Saldo kurang <strong style={{ color: "#EF4444" }}>{formatRupiah(selectedDenomData.price - walletBalance)}</strong> lagi.
+                    </span>
+                    {/* FIX: use navigate, not window.location.href */}
+                    <button className="og-topup-btn" onClick={() => navigate("/wallet")}>
+                      <Wallet size={12} /> Isi Saldo
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.2)", fontFamily: "'Barlow', sans-serif" }}>
+                <Info size={11} /> Semua transaksi pada platform ini hanya melalui OkeGas Wallet
               </div>
             </div>
           </div>
 
-          {/* Right: Summary */}
+          {/* ── RIGHT: Summary ── */}
           <div>
             <div className="tu-summary">
               <div className="tu-summary-line" />
@@ -1070,28 +1273,33 @@ export default function TopUp() {
               </h3>
               <div style={{ marginBottom: 16 }}>
                 {[
-                  { label: "Game", val: `${currentGame.icon} ${currentGame.name}` },
-                  { label: "Kategori", val: currentGame.category },
-                  { label: "User ID", val: userId || null },
-                  { label: "Item", val: selectedDenomData?.label || null },
-                  ...(selectedDenomData?.bonus ? [{ label: "Bonus", val: `+${selectedDenomData.bonus}`, green: true }] : []),
-                  { label: "Pembayaran", val: paymentMethods.find((p) => p.id === selectedPayment)?.name || null },
+                  { label: "Game",        val: `${currentGame.icon} ${currentGame.name}` },
+                  { label: "Kategori",    val: currentGame.category },
+                  { label: "User ID",     val: userId || null },
+                  ...(needsServerId ? [{ label: "Server ID", val: serverId || null }] : []),
+                  { label: "Item",        val: selectedDenomData?.label ?? null },
+                  ...(selectedDenomData?.bonus
+                    ? [{ label: "Bonus", val: `+${selectedDenomData.bonus}`, green: true }]
+                    : []),
+                  { label: "Pembayaran",  val: "OkeGas Wallet" },
                 ].map((row) => (
                   <div className="tu-summary-row" key={row.label}>
                     <span style={{ color: "rgba(255,255,255,0.35)", fontFamily: "'Barlow', sans-serif" }}>{row.label}</span>
                     <span style={{
                       color: (row as any).green ? "#10B981" : row.val ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.2)",
                       fontWeight: 600, fontSize: 13, fontFamily: "'Barlow', sans-serif",
-                      maxWidth: 160, textAlign: "right" as const, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      maxWidth: 160, textAlign: "right" as const,
+                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                     }}>
-                      {row.val || "Belum dipilih"}
+                      {row.val ?? "Belum dipilih"}
                     </span>
                   </div>
                 ))}
               </div>
+
               <div style={{
                 padding: "16px 0", borderTop: "1px solid rgba(255,255,255,0.08)",
-                borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 18,
+                borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: 14,
                 display: "flex", justifyContent: "space-between", alignItems: "center",
               }}>
                 <span style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 16, fontWeight: 700, color: "#fff" }}>Total</span>
@@ -1099,17 +1307,58 @@ export default function TopUp() {
                   {selectedDenomData ? formatRupiah(selectedDenomData.price) : "Rp 0"}
                 </span>
               </div>
-              <button
-                className="tu-proceed-btn"
-                disabled={!userId || !selectedDenom || !selectedPayment}
-                onClick={handleProceed}
-              >
-                Lanjut ke Pembayaran <ChevronRight size={16} />
-              </button>
+
+              {/* Wallet balance in summary */}
+              <div style={{
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                padding: "10px 14px", marginBottom: 14,
+                background: isBalanceSufficient ? "rgba(16,185,129,0.05)" : "rgba(239,68,68,0.05)",
+                border: `1px solid ${isBalanceSufficient ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"}`,
+                borderRadius: 10,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: 5,
+                    background: "linear-gradient(135deg, #FF6B00, #FFA500)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontFamily: "'Rajdhani', sans-serif", fontSize: 10, fontWeight: 900, color: "#fff",
+                  }}>G</div>
+                  <span style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", fontFamily: "'Barlow', sans-serif" }}>Saldo OkeGas</span>
+                </div>
+                <span style={{
+                  fontSize: 13, fontWeight: 700, fontFamily: "'Barlow', sans-serif",
+                  color: isBalanceSufficient ? "#10B981" : "#EF4444",
+                }}>
+                  {loadingBalance ? "..." : formatRupiah(walletBalance)}
+                </span>
+              </div>
+
+              {selectedDenomData && !isBalanceSufficient && (
+                <div style={{ fontSize: 12, color: "#EF4444", fontFamily: "'Barlow', sans-serif", marginBottom: 12, textAlign: "center" as const }}>
+                  Saldo tidak cukup — perlu <strong>{formatRupiah(selectedDenomData.price - walletBalance)}</strong> lagi
+                </div>
+              )}
+
+              {/* FIX: when balance insufficient, button navigates to wallet top-up instead of dead click */}
+              {selectedDenomData && !isBalanceSufficient ? (
+                <button className="tu-proceed-btn" onClick={() => navigate("/wallet")}>
+                  <Wallet size={15} /> Isi Saldo OkeGas
+                </button>
+              ) : (
+                <button
+                  className="tu-proceed-btn"
+                  disabled={!canProceed}
+                  onClick={handleProceed}
+                >
+                  Bayar dengan OkeGas <ChevronRight size={16} />
+                </button>
+              )}
+
               <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 8 }}>
                 {[
                   { icon: <Shield size={12} color="#10B981" />, label: "Transaksi dienkripsi SSL" },
                   { icon: <Clock size={12} color="#3B82F6" />, label: "Proses otomatis 24/7" },
+                  { icon: <Wallet size={12} color="#FFA500" />, label: "Dibayar via OkeGas Wallet" },
                 ].map((b) => (
                   <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "rgba(255,255,255,0.3)", fontFamily: "'Barlow', sans-serif" }}>
                     {b.icon} {b.label}

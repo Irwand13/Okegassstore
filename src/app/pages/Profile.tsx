@@ -4,10 +4,10 @@ import {
   User, Star, Shield, Package, Tag, Settings, LogOut,
   ChevronRight, TrendingUp, Wallet, Clock, CheckCircle,
   AlertCircle, Edit3, Bell, Lock, HelpCircle, Camera,
-  Trophy, Zap, Copy, ExternalLink, Loader2, X
+  Trophy, Zap, Copy, ExternalLink, Loader2, X, Trash2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getMyListings, getMyOrders, updateProfile, changePassword } from "../../lib/supabase";
+import { getMyListings, getMyOrders, updateProfile, changePassword, supabase } from "../../lib/supabase";
 
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -226,6 +226,8 @@ export default function Profile() {
   const [passwordForm, setPasswordForm] = useState({ new: "", confirm: "" });
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting]         = useState(false);
 
   // Logout Modal
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -304,6 +306,24 @@ export default function Profile() {
     } else {
       setSaveMsg("❌ Gagal menyimpan: " + error.message);
     }
+  };
+
+  const handleDeleteListing = async () => {
+  if (!deleteTarget) return;
+  setDeleting(true);
+
+  const { error } = await supabase
+    .from("listings")
+    .update({ status: "deleted" })
+    .eq("id", deleteTarget.id)
+    .eq("seller_id", session?.user?.id); // pastikan hanya bisa hapus milik sendiri
+
+  setDeleting(false);
+
+  if (!error) {
+    setListings(prev => prev.filter(l => l.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  }
   };
 
   const handleLogout = async () => {
@@ -448,9 +468,10 @@ export default function Profile() {
                 <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 24, fontWeight: 700, color: "#10B981", marginBottom: 8 }}>
                   {formatRupiah(profile?.balance ?? 0)}
                 </div>
-                <button style={{ background: "none", border: "none", color: "#EA580C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  + Top Up Saldo
-                </button>
+              <button style={{ background: "none", border: "none", color: "#EA580C", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+                onClick={() => navigate("/wallet")} >
+                + Top Up Saldo
+              </button>
               </div>
             </div>
 
@@ -613,10 +634,27 @@ export default function Profile() {
 
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="prof-btn prof-btn-secondary">
-                      <Edit3 className="w-3.5 h-3.5" /> Edit
+                      <Edit3 size={13} /> Edit
                     </button>
-                    <button className="prof-btn prof-btn-secondary" onClick={() => navigate(`/marketplace`)}>
-                      <ExternalLink className="w-3.5 h-3.5" /> Lihat
+                    <button
+                      className="prof-btn prof-btn-secondary"
+                      onClick={() => navigate(`/marketplace/${listing.id}`)}
+                    >
+                      <ExternalLink size={13} /> Lihat
+                    </button>
+                    <button
+                      onClick={() => setDeleteTarget({ id: listing.id, title: listing.title })}
+                      style={{
+                        padding: "11px 14px", borderRadius: 10,
+                        background: "rgba(220,38,38,0.07)",
+                        border: "1px solid rgba(220,38,38,0.2)",
+                        color: "#DC2626", cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: 6,
+                        fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 700,
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <Trash2 size={13} /> Hapus
                     </button>
                   </div>
                 </div>
@@ -781,7 +819,7 @@ export default function Profile() {
         )}
       </div>
 
-      {/* ── PASSWORD MODAL ──────────────────────────────── */}
+      {/* ── PASSWORD MODAL ──────────────────────────────── */} 
       {showPasswordModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}>
           <div style={{ background: "#0d0d0f", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: 32, maxWidth: 400, width: "100%", boxShadow: "0 20px 40px rgba(0,0,0,0.5)" }} className="prof-animate">
@@ -858,6 +896,55 @@ export default function Profile() {
           </div>
         </div>
       )}
+      {/* Modal Hapus Listing */}
+    {deleteTarget && (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 9999,
+    background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)",
+    display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+  }}>
+    <div style={{
+      width: "100%", maxWidth: 400,
+      background: "#111115", border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 20, overflow: "hidden",
+    }}>
+      <div style={{ height: 3, background: "linear-gradient(90deg,#DC2626,#EA580C)" }} />
+      <div style={{ padding: "24px 24px 20px" }}>
+        <div style={{ width: 52, height: 52, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+          <Trash2 size={22} color="#DC2626" />
+        </div>
+        <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+          Hapus Listing?
+        </div>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", margin: "0 0 6px", lineHeight: 1.6 }}>
+          Listing <strong style={{ color: "rgba(255,255,255,0.8)" }}>"{deleteTarget.title}"</strong> akan dihapus dari marketplace.
+        </p>
+        <p style={{ fontSize: 12, color: "rgba(220,38,38,0.7)", margin: "0 0 24px" }}>
+          ⚠️ Tindakan ini tidak bisa dibatalkan.
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button
+            onClick={() => setDeleteTarget(null)}
+            disabled={deleting}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.6)", fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            Batal
+          </button>
+          <button
+            onClick={handleDeleteListing}
+            disabled={deleting}
+            style={{ flex: 1, padding: "11px", borderRadius: 10, border: "none", background: "linear-gradient(135deg,#DC2626,#b91c1c)", color: "#fff", fontFamily: "'Barlow',sans-serif", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, opacity: deleting ? 0.6 : 1 }}
+          >
+            {deleting
+              ? <><Loader2 size={13} style={{ animation: "spin 0.7s linear infinite" }} /> Menghapus...</>
+              : <><Trash2 size={13} /> Ya, Hapus</>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ── LOGOUT MODAL ─────────────────────────────── */}
       {showLogoutModal && (
