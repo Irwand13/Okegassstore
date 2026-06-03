@@ -394,7 +394,7 @@ export default function FeaturedAccounts() {
                 key={acc.id}
                 className="fa-card fa-animate"
                 style={{ animationDelay: `${i * 100}ms`, ["--glow" as string]: acc.glowColor } as React.CSSProperties}
-                onClick={() => navigate("/marketplace")}
+                onClick={() => navigate(`/marketplace/${acc.id}`)}
               >
                 {/* per-card glow & line via scoped style */}
                 <style>{`

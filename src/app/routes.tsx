@@ -17,6 +17,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Home },
       { path: "topup", Component: TopUp },
       { path: "marketplace", Component: Marketplace },
+      { path: "marketplace/:id", Component: Marketplace },
       { path: "marketplace/sell", Component: SellAccount },
       { path: "profile", Component: Profile },
       { path: "bantuan", Component: Bantuan },
