@@ -245,7 +245,7 @@ export default function WalletPage() {
     // 3. Webhook Midtrans → update balance di Supabase
     //
     // Untuk sekarang (prototype): simulasi sukses setelah 2 detik
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, 100));
 
     // Insert log (akan diganti webhook di production)
     await supabase.from("wallet_logs").insert({
