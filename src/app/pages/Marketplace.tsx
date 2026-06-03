@@ -447,7 +447,7 @@ export default function Marketplace() {
               const seller = listing.profiles;
               
               return (
-                <div key={listing.id} className="mp-card mp-animate" style={{ animationDelay:`${i*70}ms` }} onClick={() => setActiveDetail(listing.id)}>
+                <div key={listing.id} className="mp-card mp-animate" style={{ animationDelay:`${i*70}ms` }} onClick={() => navigate(`/marketplace/${listing.id}`)}>
                   <div className="mp-card-glow" style={{ background:gc.color }} />
 
                   {/* Top color bar */}
@@ -608,7 +608,9 @@ export default function Marketplace() {
               {/* CTAs */}
               <div style={{ display:"flex", gap:10 }}>
                 <button className="mp-btn-ghost"><MessageCircle size={15} /> Chat Penjual</button>
-                <button className="mp-btn-primary"><Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} /></button>
+                <button className="mp-btn-primary" onClick={() => navigate(`/marketplace/${detail.id}`)}>
+                  <Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} />
+                </button>
               </div>
             </div>
           </div>
