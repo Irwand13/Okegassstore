@@ -302,6 +302,7 @@ export default function ListingDetail() {
 
       // Redirect ke chat setelah 1.5 detik (biar success screen keliatan sebentar)
       if (chat?.id) {
+        setSuccessChatId(chat.id);
         setTimeout(() => navigate(`/chat/${chat.id}`), 1500);
       }
 

@@ -6,7 +6,7 @@ import {
   Eye, MessageCircle, Heart, TrendingUp, Filter, Zap, SlidersHorizontal, Loader2
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getGameCategories, getListings, Listing, GameCategory } from "../../lib/supabase";
+import { getGameCategories, getListings, Listing, GameCategory, supabase } from "../../lib/supabase";
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
@@ -225,6 +225,8 @@ option { background: #1a1a1f; }
 }
 @media(min-width:768px) { .mp-cards-grid { grid-template-columns:repeat(2,1fr); } }
 @media(min-width:1100px){ .mp-cards-grid { grid-template-columns:repeat(3,1fr); } }
+
+@keyframes spin { to { transform: rotate(360deg); } }
 `;
 
 export default function Marketplace() {
@@ -243,7 +245,7 @@ export default function Marketplace() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [favs, setFavs] = useState<number[]>([]);
+  const [favs, setFavs] = useState<string[]>([]);
   const [activeDetail, setActiveDetail] = useState<string | null>(null);
 
   // Fetch data dari Supabase
@@ -251,21 +253,11 @@ export default function Marketplace() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // Fetch categories
         const { data: cats } = await getGameCategories();
-        if (cats) {
-          setCategories(cats);
-        }
+        if (cats) setCategories(cats);
 
-        // Fetch all listings
-        const { data: listings } = await getListings({
-          limit: 100,
-          offset: 0,
-        });
-        
-        if (listings) {
-          setListings(listings);
-        }
+        const { data: listingsData } = await getListings({ limit: 100, offset: 0 });
+        if (listingsData) setListings(listingsData);
       } catch (error) {
         console.error("❌ Error fetching marketplace data:", error);
       } finally {
@@ -276,13 +268,32 @@ export default function Marketplace() {
     fetchData();
   }, []);
 
+  // ✅ FIX 3: Realtime — hapus listing dari list saat status berubah jadi sold
+  useEffect(() => {
+    const channel = supabase
+      .channel("listings-status")
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
+        table: "listings",
+      }, (payload) => {
+        if (payload.new.status === "sold") {
+          setListings(prev => prev.filter(l => l.id !== payload.new.id));
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   const toggleFav = (id: string) => setFavs((p) => p.includes(id) ? p.filter((f) => f !== id) : [...p, id]);
 
-  // Build game filter list dari categories
   const games = ["Semua Game", ...categories.map(c => c.name)];
   const ranks = ["Semua Rank", "Mythic Glory", "Mythic", "Legend", "Epic", "Grandmaster", "Master", "Platinum", "Gold"];
 
+  // ✅ FIX 1: Exclude listing yang sudah sold dari tampilan
   const filtered = listings.filter((listing: Listing) => {
+    if (listing.status === "sold") return false; // ← hide sold listings
     if (selectedGame !== "Semua Game" && listing.game_categories?.name !== selectedGame) return false;
     if (selectedRank !== "Semua Rank" && listing.account_rank && !listing.account_rank.includes(selectedRank)) return false;
     if (searchQuery && !listing.title.toLowerCase().includes(searchQuery.toLowerCase()) && !listing.game_categories?.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -292,9 +303,12 @@ export default function Marketplace() {
   }).sort((a: Listing, b: Listing) => {
     if (selectedSort === "Harga Terendah") return a.price - b.price;
     if (selectedSort === "Harga Tertinggi") return b.price - a.price;
-    if (selectedSort === "Terpopuler") return Math.random() - 0.5; // Random sort for now
+    if (selectedSort === "Terpopuler") return (b.view_count || 0) - (a.view_count || 0);
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
+
+  // ✅ FIX 2: Hitung akun aktif (exclude sold)
+  const activeCount = listings.filter(l => l.status !== "sold").length;
 
   const detail = activeDetail !== null ? listings.find((l: Listing) => l.id === activeDetail) : null;
   const hasActiveFilters = selectedGame !== "Semua Game" || selectedRank !== "Semua Rank" || searchQuery;
@@ -318,7 +332,8 @@ export default function Marketplace() {
           </p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" as const }}>
             {[
-              { icon:<TrendingUp size={12}/>, label:`${listings.length}+ Akun Aktif`, color:"#10B981" },
+              // ✅ FIX 2: Pakai activeCount bukan listings.length
+              { icon:<TrendingUp size={12}/>, label:`${activeCount}+ Akun Aktif`, color:"#10B981" },
               { icon:<Shield size={12}/>, label:"Escrow Protected", color:"#3B82F6" },
               { icon:<Zap size={12}/>, label:"Transaksi Aman", color:"#DC2626" },
             ].map((b) => (
@@ -454,7 +469,7 @@ export default function Marketplace() {
                   <div className="mp-card-top-bar" style={{ background:`linear-gradient(90deg,${gc.color},${gc.color}88)` }} />
 
                   <div className="mp-card-body">
-                    {/* Row 1: game tag + badge + fav */}
+                    {/* Row 1: game tag + fav */}
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                         <div style={{ width:32, height:32, borderRadius:9, background:`${gc.color}18`, border:`1px solid ${gc.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
@@ -493,8 +508,12 @@ export default function Marketplace() {
                         <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.8)", fontFamily:"'Rajdhani',sans-serif" }}>{seller?.full_name || "Seller"}</div>
                         <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"rgba(255,255,255,0.3)", fontFamily:"'Barlow',sans-serif" }}>
                           <Star size={10} fill="#F59E0B" color="#F59E0B" />
-                          <span style={{ color:"#F59E0B", fontWeight:600 }}>5.0</span>
-                          · {Math.floor(Math.random() * 100)} terjual
+                          <span style={{ color:"#F59E0B", fontWeight:600 }}>
+                            {seller?.total_reviews > 0
+                              ? (seller.rating_sum / seller.total_reviews).toFixed(1)
+                              : "5.0"}
+                          </span>
+                          · {seller?.total_sales || 0} terjual
                         </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:11, fontWeight:700, color:st.color, fontFamily:"'Barlow',sans-serif" }}>
@@ -512,7 +531,7 @@ export default function Marketplace() {
                         </div>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:10, fontSize:11, color:"rgba(255,255,255,0.2)", fontFamily:"'Barlow',sans-serif" }}>
-                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Eye size={12} /> {Math.floor(Math.random() * 500)}</span>
+                        <span style={{ display:"flex", alignItems:"center", gap:4 }}><Eye size={12} /> {listing.view_count || 0}</span>
                         <span style={{ display:"flex", alignItems:"center", gap:4 }}><Heart size={12} /> {favs.includes(listing.id) ? 1 : 0}</span>
                       </div>
                     </div>
@@ -538,11 +557,9 @@ export default function Marketplace() {
         return (
           <div className="mp-modal-overlay" onClick={() => setActiveDetail(null)}>
             <div className="mp-modal" onClick={(e) => e.stopPropagation()}>
-              {/* modal top color */}
               <div style={{ height:3, background:`linear-gradient(90deg,${gc.color},${gc.color}66)` }} />
 
               <div className="mp-modal-body">
-                {/* Header */}
                 <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", marginBottom:20 }}>
                   <div>
                     <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
@@ -556,65 +573,64 @@ export default function Marketplace() {
                   </button>
                 </div>
 
-                {/* Stats */}
                 <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:20 }}>
                   {[{ l:"Rank", v:detail.account_rank || "-" },{ l:"Level", v:detail.account_level || "-" },{ l:"Status", v:st.label }].map((s) => (
                     <div key={s.l} className="mp-modal-stat">
                       <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:4 }}>{s.l}</div>
                       <div style={{ fontSize:14, fontWeight:700, color:s.l === "Status" ? st.color : "rgba(255,255,255,0.85)", fontFamily:"'Rajdhani',sans-serif" }}>{s.v}</div>
                     </div>
-                ))}
-              </div>
-
-              {/* Escrow banner */}
-              <div className="mp-modal-escrow">
-                <Shield size={18} color="#10B981" style={{ flexShrink:0, marginTop:1 }} />
-                <div>
-                  <div style={{ fontSize:14, fontWeight:700, color:"#10B981", fontFamily:"'Rajdhani',sans-serif", marginBottom:2 }}>Dilindungi Escrow OkeGass</div>
-                  <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontFamily:"'Barlow',sans-serif" }}>Dana aman hingga akun berhasil dipindahkan ke pembeli</div>
+                  ))}
                 </div>
-              </div>
 
-              {/* Seller */}
-              <div className="mp-modal-seller">
-                <div style={{ width:40, height:40, borderRadius:12, background:"linear-gradient(135deg,#DC2626,#EA580C)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, overflow:"hidden" }}>
-                  {seller?.avatar_url ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <User size={18} color="#fff" />}
-                </div>
-                <div style={{ flex:1 }}>
-                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color:"#fff" }}>{seller?.full_name || "Seller"}</div>
-                  <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"rgba(255,255,255,0.35)", fontFamily:"'Barlow',sans-serif" }}>
-                    <Star size={11} fill="#F59E0B" color="#F59E0B" />
-                    <span style={{ color:"#F59E0B", fontWeight:600 }}>5.0</span>
-                    · {Math.floor(Math.random() * 100)} Transaksi
+                <div className="mp-modal-escrow">
+                  <Shield size={18} color="#10B981" style={{ flexShrink:0, marginTop:1 }} />
+                  <div>
+                    <div style={{ fontSize:14, fontWeight:700, color:"#10B981", fontFamily:"'Rajdhani',sans-serif", marginBottom:2 }}>Dilindungi Escrow OkeGass</div>
+                    <div style={{ fontSize:12, color:"rgba(255,255,255,0.4)", fontFamily:"'Barlow',sans-serif" }}>Dana aman hingga akun berhasil dipindahkan ke pembeli</div>
                   </div>
                 </div>
-                <div style={{ fontSize:11, fontWeight:700, color:st.color, fontFamily:"'Barlow',sans-serif" }}>
-                  {st.label}
-                </div>
-              </div>
 
-              {/* Price */}
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-                <div>
-                  <div style={{ fontSize:11, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.08em", fontFamily:"'Barlow',sans-serif", marginBottom:4 }}>Harga</div>
-                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:32, fontWeight:700, color:"#DC2626", lineHeight:1 }}>{formatRupiah(detail.price)}</div>
+                <div className="mp-modal-seller">
+                  <div style={{ width:40, height:40, borderRadius:12, background:"linear-gradient(135deg,#DC2626,#EA580C)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, overflow:"hidden" }}>
+                    {seller?.avatar_url ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <User size={18} color="#fff" />}
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color:"#fff" }}>{seller?.full_name || "Seller"}</div>
+                    <div style={{ display:"flex", alignItems:"center", gap:5, fontSize:12, color:"rgba(255,255,255,0.35)", fontFamily:"'Barlow',sans-serif" }}>
+                      <Star size={11} fill="#F59E0B" color="#F59E0B" />
+                      <span style={{ color:"#F59E0B", fontWeight:600 }}>
+                        {seller?.total_reviews > 0
+                          ? (seller.rating_sum / seller.total_reviews).toFixed(1)
+                          : "5.0"}
+                      </span>
+                      · {seller?.total_sales || 0} Transaksi
+                    </div>
+                  </div>
+                  <div style={{ fontSize:11, fontWeight:700, color:st.color, fontFamily:"'Barlow',sans-serif" }}>
+                    {st.label}
+                  </div>
                 </div>
-                <div style={{ display:"flex", gap:14, fontSize:12, color:"rgba(255,255,255,0.25)", fontFamily:"'Barlow',sans-serif" }}>
-                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Eye size={13} /> {Math.floor(Math.random() * 500)}</span>
-                  <span style={{ display:"flex", alignItems:"center", gap:5 }}><Heart size={13} /> {favs.includes(detail.id) ? 1 : 0}</span>
-                </div>
-              </div>
 
-              {/* CTAs */}
-              <div style={{ display:"flex", gap:10 }}>
-                <button className="mp-btn-ghost"><MessageCircle size={15} /> Chat Penjual</button>
-                <button className="mp-btn-primary" onClick={() => navigate(`/marketplace/${detail.id}`)}>
-                  <Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} />
-                </button>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
+                  <div>
+                    <div style={{ fontSize:11, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.08em", fontFamily:"'Barlow',sans-serif", marginBottom:4 }}>Harga</div>
+                    <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:32, fontWeight:700, color:"#DC2626", lineHeight:1 }}>{formatRupiah(detail.price)}</div>
+                  </div>
+                  <div style={{ display:"flex", gap:14, fontSize:12, color:"rgba(255,255,255,0.25)", fontFamily:"'Barlow',sans-serif" }}>
+                    <span style={{ display:"flex", alignItems:"center", gap:5 }}><Eye size={13} /> {detail.view_count || 0}</span>
+                    <span style={{ display:"flex", alignItems:"center", gap:5 }}><Heart size={13} /> {favs.includes(detail.id) ? 1 : 0}</span>
+                  </div>
+                </div>
+
+                <div style={{ display:"flex", gap:10 }}>
+                  <button className="mp-btn-ghost"><MessageCircle size={15} /> Chat Penjual</button>
+                  <button className="mp-btn-primary" onClick={() => navigate(`/marketplace/${detail.id}`)}>
+                    <Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
         );
       })()}
     </div>
