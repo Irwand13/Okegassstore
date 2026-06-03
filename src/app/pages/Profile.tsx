@@ -615,7 +615,7 @@ export default function Profile() {
                     <button className="prof-btn prof-btn-secondary">
                       <Edit3 className="w-3.5 h-3.5" /> Edit
                     </button>
-                    <button className="prof-btn prof-btn-secondary" onClick={() => navigate(`/marketplace`)}>
+                    <button className="prof-btn prof-btn-secondary" onClick={() => navigate(`/marketplace/${listing.id}`)}>
                       <ExternalLink className="w-3.5 h-3.5" /> Lihat
                     </button>
                   </div>

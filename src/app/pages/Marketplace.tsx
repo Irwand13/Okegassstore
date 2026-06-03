@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import {
   Search, User, Star, Shield, Tag,
   ChevronDown, ChevronRight, X, ArrowUpDown, CheckCircle,
@@ -243,8 +243,10 @@ export default function Marketplace() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [favs, setFavs] = useState<number[]>([]);
+  const [favs, setFavs] = useState<string[]>([]);
   const [activeDetail, setActiveDetail] = useState<string | null>(null);
+
+  const { id: urlListingId } = useParams();
 
   // Fetch data dari Supabase
   useEffect(() => {
@@ -275,6 +277,16 @@ export default function Marketplace() {
 
     fetchData();
   }, []);
+
+  // Handle direct link to listing detail
+  useEffect(() => {
+    if (urlListingId && listings.length > 0) {
+      const exists = listings.find(l => l.id === urlListingId);
+      if (exists) {
+        setActiveDetail(urlListingId);
+      }
+    }
+  }, [urlListingId, listings]);
 
   const toggleFav = (id: string) => setFavs((p) => p.includes(id) ? p.filter((f) => f !== id) : [...p, id]);
 
