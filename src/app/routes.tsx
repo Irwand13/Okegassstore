@@ -9,6 +9,7 @@ import Profile from "./pages/Profile";
 import Bantuan from "./pages/Bantuan";
 import pulsa from "./pages/pulsa";
 import Wallet from "./pages/Wallet";
+import ChatRoom from "./pages/ChatRoom";  // ← halaman chat room baru
 
 export const router = createBrowserRouter([
   {
@@ -24,6 +25,9 @@ export const router = createBrowserRouter([
       { path: "bantuan",              Component: Bantuan },
       { path: "layanandigital",       Component: pulsa },
       { path: "wallet",               Component: Wallet },
+      { path: "chat",                 Component: ChatRoom },
+      { path: "chat/:chatId",         Component: ChatRoom }, // ← route untuk chat room dengan id
+
     ],
   },
 ]);

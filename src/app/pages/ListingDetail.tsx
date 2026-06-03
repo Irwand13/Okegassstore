@@ -3,10 +3,11 @@ import { useParams, useNavigate } from "react-router";
 import {
   Shield, Star, User, CheckCircle, AlertCircle,
   ArrowLeft, Eye, Wallet, Zap, Clock,
-  ChevronRight, Loader2, Lock, ImageOff, FileText
+  ChevronRight, Loader2, Lock, ImageOff, FileText, MessageCircle
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { supabase, getListingById, incrementViewCount } from "@/lib/supabase";
+import { supabase, getListingById, incrementViewCount, getOrCreateChat } from "@/lib/supabase";
+
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
@@ -156,6 +157,7 @@ export default function ListingDetail() {
   const [buying,      setBuying]      = useState(false);
   const [buyError,    setBuyError]    = useState("");
   const [buySuccess,  setBuySuccess]  = useState(false);
+  const [successChatId, setSuccessChatId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -168,7 +170,7 @@ export default function ListingDetail() {
       }
       setListing(data);
       setLoading(false);
-      incrementViewCount(id); // safe — tidak crash
+      incrementViewCount(id);
     });
   }, [id]);
 
@@ -192,7 +194,7 @@ export default function ListingDetail() {
   const saldo     = profile?.balance ?? 0;
   const hasEnough = saldo >= listing.price;
 
-  // ── Eksekusi beli (tanpa RPC — langsung transaksi manual) ─────
+  // ── Eksekusi beli ─────────────────────────────────────────────
   const handleBuy = async () => {
     if (!session?.user) return;
     setBuying(true);
@@ -243,10 +245,7 @@ export default function ListingDetail() {
 
       if (deductError) throw new Error("Gagal memotong saldo: " + deductError.message);
 
-      // 4. Tambah saldo seller (escrow — pending dulu di order)
-      // (seller dapat saldo setelah buyer konfirmasi)
-
-      // 5. Buat order
+      // 4. Buat order
       const { data: order, error: orderError } = await supabase
         .from("orders")
         .insert({
@@ -266,7 +265,7 @@ export default function ListingDetail() {
 
       if (orderError) throw new Error("Gagal membuat order: " + orderError.message);
 
-      // 6. Catat wallet log buyer
+      // 5. Catat wallet log buyer
       await supabase.from("wallet_logs").insert({
         user_id:        session.user.id,
         order_id:       order.id,
@@ -277,17 +276,34 @@ export default function ListingDetail() {
         note:           `Beli akun: ${listing.title}`,
       });
 
-      // 7. Update status listing → sold
+      // 6. Update status listing → sold
       await supabase
         .from("listings")
         .update({ status: "sold", sold_at: new Date().toISOString() })
         .eq("id", listing.id);
 
-      // 8. Sukses
+      // 7. Buat chat room antara buyer dan seller
+      const { data: chat, error: chatError } = await getOrCreateChat(
+        order.id,
+        listing.id,
+        session.user.id,
+        listing.seller_id
+      );
+
+      if (chatError) {
+        console.error("Gagal membuat chat:", chatError);
+      }
+
+      // 8. Sukses — redirect ke chat
       setBuying(false);
       setBuySuccess(true);
       setShowConfirm(false);
       setListing((prev: any) => ({ ...prev, status: "sold" }));
+
+      // Redirect ke chat setelah 1.5 detik (biar success screen keliatan sebentar)
+      if (chat?.id) {
+        setTimeout(() => navigate(`/chat/${chat.id}`), 1500);
+      }
 
     } catch (err: any) {
       setBuyError(err.message || "Terjadi kesalahan. Coba lagi.");
@@ -312,7 +328,7 @@ export default function ListingDetail() {
           </p>
           <p style={{ color:"rgba(255,255,255,0.3)", fontSize:13, margin:"0 0 28px" }}>
             Saldo berkurang <strong style={{ color:"#DC2626" }}>{formatRupiah(listing.price)}</strong>.
-            Tunggu seller mengirim data akun.
+            Hubungi seller di chat untuk mendapatkan data akun.
           </p>
           <div className="ld-alert ld-alert-green" style={{ textAlign:"left", marginBottom:24 }}>
             <Shield size={16} color="#10B981" style={{ flexShrink:0, marginTop:1 }} />
@@ -328,9 +344,15 @@ export default function ListingDetail() {
             <button onClick={() => navigate("/marketplace")} className="ld-modal-btn ld-modal-btn-secondary" style={{ flex:1 }}>
               <ArrowLeft size={14} /> Marketplace
             </button>
-            <button onClick={() => navigate("/profile")} className="ld-modal-btn ld-modal-btn-primary" style={{ flex:1 }}>
-              <Zap size={14} /> Lihat Pesanan
-            </button>
+            {successChatId ? (
+              <button onClick={() => navigate(`/chat/${successChatId}`)} className="ld-modal-btn ld-modal-btn-primary" style={{ flex:1 }}>
+                <MessageCircle size={14} /> Chat Seller
+              </button>
+            ) : (
+              <button onClick={() => navigate("/profile")} className="ld-modal-btn ld-modal-btn-primary" style={{ flex:1 }}>
+                <Zap size={14} /> Lihat Pesanan
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -580,9 +602,10 @@ export default function ListingDetail() {
                 {/* Trust badges */}
                 <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
                   {[
-                    { icon:<Shield size={12} color="#10B981" />,    text:"Dana aman dengan escrow" },
-                    { icon:<CheckCircle size={12} color="#3B82F6" />, text:"Auto-complete 3 hari" },
-                    { icon:<AlertCircle size={12} color="#F59E0B" />, text:"Mediasi jika ada sengketa" },
+                    { icon:<Shield size={12} color="#10B981" />,      text:"Dana aman dengan escrow" },
+                    { icon:<CheckCircle size={12} color="#3B82F6" />,  text:"Auto-complete 3 hari" },
+                    { icon:<MessageCircle size={12} color="#A78BFA" />, text:"Chat langsung dengan seller" },
+                    { icon:<AlertCircle size={12} color="#F59E0B" />,  text:"Mediasi jika ada sengketa" },
                   ].map(item => (
                     <div key={item.text} style={{ display:"flex", alignItems:"center", gap:7, fontSize:12, color:"rgba(255,255,255,0.3)" }}>
                       {item.icon} {item.text}

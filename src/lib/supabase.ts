@@ -135,6 +135,25 @@ export type WalletLog = {
   created_at: string
 }
 
+// ─── NEW: Chat Types ──────────────────────────────────────────────
+
+export type Chat = {
+  id: string
+  order_id: string
+  listing_id: string
+  buyer_id: string
+  seller_id: string
+  created_at: string
+}
+
+export type ChatMessage = {
+  id: string
+  chat_id: string
+  sender_id: string
+  message: string
+  created_at: string
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────
 
 export const signUp = async (email: string, password: string, username: string, fullName: string) => {
@@ -209,7 +228,7 @@ export const getListings = async (filters?: {
   let query = supabase
     .from('listings')
     .select(`*, game_categories (name, icon, color)`)
-    .eq('status', 'active')
+    .eq('status', 'active')          // hanya tampilkan listing aktif — sold otomatis hilang
     .order('created_at', { ascending: false })
 
   if (filters?.game_id)   query = query.eq('game_id', filters.game_id)
@@ -252,7 +271,6 @@ export const getListingById = async (id: string) => {
 
   if (error || !data) return { data, error }
 
-  // Fetch seller profile separately — hindari masalah RLS join
   const { data: sellerProfile } = await supabase
     .from('profiles')
     .select('id, full_name, username, avatar_url, is_verified_seller, rating_sum, total_reviews, total_sales, created_at')
@@ -293,12 +311,10 @@ export const updateListing = async (id: string, payload: Partial<Listing>) => {
   return { data, error }
 }
 
-// ✅ Safe incrementViewCount — tidak crash kalau RPC belum ada
 export const incrementViewCount = async (id: string) => {
   try {
     const { error } = await supabase.rpc('increment_view_count', { listing_id: id })
     if (error) {
-      // Fallback manual update
       const { data: listing } = await supabase
         .from('listings')
         .select('view_count')
@@ -312,7 +328,7 @@ export const incrementViewCount = async (id: string) => {
       }
     }
   } catch {
-    // Silent fail — view count bukan fitur kritis
+    // silent fail
   }
 }
 
@@ -448,4 +464,82 @@ export const getWalletLogs = async (userId: string) => {
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
   return { data: data as WalletLog[] | null, error }
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────
+
+/**
+ * Ambil atau buat chat room untuk order tertentu.
+ * Dipanggil setelah transaksi berhasil di ListingDetail.
+ */
+export const getOrCreateChat = async (
+  orderId: string,
+  listingId: string,
+  buyerId: string,
+  sellerId: string
+): Promise<{ data: { id: string } | null; error: any }> => {
+  // Cek apakah sudah ada chat untuk order ini
+  const { data: existing, error: fetchError } = await supabase
+    .from('chats')
+    .select('id')
+    .eq('order_id', orderId)
+    .maybeSingle()
+
+  if (fetchError) return { data: null, error: fetchError }
+  if (existing)   return { data: existing, error: null }
+
+  // Belum ada — buat baru
+  const { data, error } = await supabase
+    .from('chats')
+    .insert({ order_id: orderId, listing_id: listingId, buyer_id: buyerId, seller_id: sellerId })
+    .select('id')
+    .single()
+
+  return { data, error }
+}
+
+/**
+ * Ambil semua chat milik user (sebagai buyer atau seller).
+ * Untuk halaman daftar chat / inbox.
+ */
+export const getMyChats = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('chats')
+    .select(`
+      *,
+      listing:listing_id (title, price, images),
+      buyer:buyer_id (id, full_name, username, avatar_url),
+      seller:seller_id (id, full_name, username, avatar_url),
+      order:order_id (status)
+    `)
+    .or(`buyer_id.eq.${userId},seller_id.eq.${userId}`)
+    .order('created_at', { ascending: false })
+
+  return { data, error }
+}
+
+/**
+ * Ambil semua pesan dalam satu chat room.
+ */
+export const getChatMessages = async (chatId: string) => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*, sender:sender_id (id, full_name, username, avatar_url)')
+    .eq('chat_id', chatId)
+    .order('created_at', { ascending: true })
+
+  return { data, error }
+}
+
+/**
+ * Kirim pesan ke chat room.
+ */
+export const sendChatMessage = async (chatId: string, senderId: string, message: string) => {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({ chat_id: chatId, sender_id: senderId, message })
+    .select('id')
+    .single()
+
+  return { data, error }
 }

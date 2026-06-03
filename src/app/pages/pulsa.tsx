@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router";
-import { Smartphone, Zap, Wallet, ChevronDown, CheckCircle2, ArrowRight, Search } from "lucide-react";
+import { Smartphone, Zap, Wallet, CheckCircle2, ArrowRight, AlertCircle } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../../lib/supabase";
 import telkomselLogo from "../../img/telkomsel.png";
 import xlLogo from "../../img/xl.png";
 import indosatLogo from "../../img/indosat.png";
@@ -10,45 +12,16 @@ import axisLogo from "../../img/axis.png";
 
 /* ─── Types ─── */
 type TabId = "pulsa" | "pln" | "ewallet";
+type PulsaMode = "pulsa" | "data";
 
 /* ─── Data ─── */
 const OPERATORS = [
-  {
-    id: "telkomsel",
-    label: "Telkomsel",
-    color: "#EF4444",
-    logo: telkomselLogo,
-  },
-  {
-    id: "xl",
-    label: "XL Axiata",
-    color: "#3B82F6",
-    logo: xlLogo,
-  },
-  {
-    id: "indosat",
-    label: "Indosat",
-    color: "#F59E0B",
-    logo: indosatLogo,
-  },
-  {
-    id: "tri",
-    label: "Tri",
-    color: "#8B5CF6",
-    logo: triLogo,
-  },
-  {
-    id: "smartfren",
-    label: "Smartfren",
-    color: "#10B981",
-    logo: smartfrenLogo,
-  },
-  {
-    id: "axis",
-    label: "Axis",
-    color: "#EC4899",
-    logo: axisLogo,
-  },
+  { id: "telkomsel", label: "Telkomsel", color: "#EF4444", logo: telkomselLogo },
+  { id: "xl",        label: "XL Axiata", color: "#3B82F6", logo: xlLogo },
+  { id: "indosat",   label: "Indosat",   color: "#F59E0B", logo: indosatLogo },
+  { id: "tri",       label: "Tri",       color: "#8B5CF6", logo: triLogo },
+  { id: "smartfren", label: "Smartfren", color: "#10B981", logo: smartfrenLogo },
+  { id: "axis",      label: "Axis",      color: "#EC4899", logo: axisLogo },
 ];
 
 const PULSA_NOMINAL = [
@@ -61,30 +34,30 @@ const PULSA_NOMINAL = [
 ];
 
 const DATA_PACKAGES = [
-  { id: "d1", label: "1 GB / 7 hari",  price: 13000,  tag: "Populer" },
-  { id: "d2", label: "2 GB / 30 hari", price: 25000,  tag: "" },
-  { id: "d3", label: "5 GB / 30 hari", price: 55000,  tag: "Hemat" },
-  { id: "d4", label: "10 GB / 30 hari",price: 95000,  tag: "" },
-  { id: "d5", label: "15 GB / 30 hari",price: 130000, tag: "" },
-  { id: "d6", label: "Unlimited 30 hr",price: 160000, tag: "Best Value" },
+  { id: "d1", label: "1 GB / 7 hari",   price: 13000,  tag: "Populer" },
+  { id: "d2", label: "2 GB / 30 hari",  price: 25000,  tag: "" },
+  { id: "d3", label: "5 GB / 30 hari",  price: 55000,  tag: "Hemat" },
+  { id: "d4", label: "10 GB / 30 hari", price: 95000,  tag: "" },
+  { id: "d5", label: "15 GB / 30 hari", price: 130000, tag: "" },
+  { id: "d6", label: "Unlimited 30 hr", price: 160000, tag: "Best Value" },
 ];
 
 const PLN_NOMINAL = [
-  { val: 20000,  price: 21500,  label: "20.000 token" },
-  { val: 50000,  price: 51500,  label: "50.000 token" },
-  { val: 100000, price: 102000, label: "100.000 token" },
-  { val: 200000, price: 202500, label: "200.000 token" },
-  { val: 500000, price: 503000, label: "500.000 token" },
-  { val: 1000000,price: 1004000,label: "1.000.000 token" },
+  { val: 20000,   price: 21500,   label: "20.000 token" },
+  { val: 50000,   price: 51500,   label: "50.000 token" },
+  { val: 100000,  price: 102000,  label: "100.000 token" },
+  { val: 200000,  price: 202500,  label: "200.000 token" },
+  { val: 500000,  price: 503000,  label: "500.000 token" },
+  { val: 1000000, price: 1004000, label: "1.000.000 token" },
 ];
 
 const EWALLETS = [
-  { id: "gopay",     label: "GoPay",      color: "#00ADE0", logo: "💙" },
-  { id: "ovo",       label: "OVO",        color: "#5A2D81", logo: "💜" },
-  { id: "dana",      label: "DANA",       color: "#1189CC", logo: "💎" },
-  { id: "shopeepay", label: "ShopeePay",  color: "#EF4444", logo: "🧡" },
-  { id: "linkaja",   label: "LinkAja",    color: "#E91E63", logo: "❤️" },
-  { id: "jenius",    label: "Jenius",     color: "#0EA5E9", logo: "🔷" },
+  { id: "gopay",     label: "GoPay",     color: "#00ADE0", logo: "💙" },
+  { id: "ovo",       label: "OVO",       color: "#5A2D81", logo: "💜" },
+  { id: "dana",      label: "DANA",      color: "#1189CC", logo: "💎" },
+  { id: "shopeepay", label: "ShopeePay", color: "#EF4444", logo: "🧡" },
+  { id: "linkaja",   label: "LinkAja",   color: "#E91E63", logo: "❤️" },
+  { id: "jenius",    label: "Jenius",    color: "#0EA5E9", logo: "🔷" },
 ];
 
 const EWALLET_NOMINAL = [
@@ -98,34 +71,54 @@ const EWALLET_NOMINAL = [
 
 const fmtRp = (n: number) => "Rp " + n.toLocaleString("id-ID");
 
-/* ─── Sub-type toggle ─── */
-type PulsaMode = "pulsa" | "data";
-
+/* ─── Component ─── */
 export default function TopUpPage() {
   const [params] = useSearchParams();
-  const navigate  = useNavigate();
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
 
   const initTab = (params.get("tab") as TabId) || "pulsa";
-  const [tab, setTab]               = useState<TabId>(initTab);
-  const [pulsaMode, setPulsaMode]   = useState<PulsaMode>("pulsa");
-  const [operator, setOperator]     = useState("");
-  const [ewallet, setEwallet]       = useState("");
-  const [nominal, setNominal]       = useState<number | null>(null);
-  const [dataPkg, setDataPkg]       = useState("");
-  const [phone, setPhone]           = useState("");
-  const [meter, setMeter]           = useState("");
-  const [ordered, setOrdered]       = useState(false);
-  const [loading, setLoading]       = useState(false);
+  const [tab, setTab]             = useState<TabId>(initTab);
+  const [pulsaMode, setPulsaMode] = useState<PulsaMode>("pulsa");
+  const [operator, setOperator]   = useState("");
+  const [ewallet, setEwallet]     = useState("");
+  const [nominal, setNominal]     = useState<number | null>(null);
+  const [dataPkg, setDataPkg]     = useState("");
+  const [phone, setPhone]         = useState("");
+  const [meter, setMeter]         = useState("");
+  const [ordered, setOrdered]     = useState(false);
+  const [loading, setLoading]     = useState(false);
 
-  // sync tab from URL
+  // Wallet state
+  const [balance, setBalance]               = useState(profile?.balance ?? 0);
+  const [insufficientFunds, setInsufficientFunds] = useState(false);
+
+  // Fetch balance terbaru saat mount
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single()
+      .then(({ data }) => { if (data) setBalance(data.balance); });
+  }, [user]);
+
+  // Reset insufficient funds warning saat nominal berubah
+  useEffect(() => {
+    setInsufficientFunds(false);
+  }, [nominal, dataPkg, tab]);
+
+  // Sync tab dari URL
   useEffect(() => {
     const t = params.get("tab") as TabId;
-    if (t && ["pulsa","pln","ewallet"].includes(t)) setTab(t);
+    if (t && ["pulsa", "pln", "ewallet"].includes(t)) setTab(t);
   }, [params]);
 
   const resetForm = () => {
     setOperator(""); setEwallet(""); setNominal(null);
-    setDataPkg(""); setPhone(""); setMeter(""); setOrdered(false);
+    setDataPkg(""); setPhone(""); setMeter("");
+    setOrdered(false); setInsufficientFunds(false);
   };
 
   const switchTab = (t: TabId) => {
@@ -142,13 +135,7 @@ export default function TopUpPage() {
     return false;
   };
 
-  const handleOrder = () => {
-    if (!canOrder()) return;
-    setLoading(true);
-    setTimeout(() => { setLoading(false); setOrdered(true); }, 1800);
-  };
-
-  const selectedPrice = () => {
+  const selectedPrice = (): number => {
     if (tab === "pulsa" && pulsaMode === "pulsa" && nominal)
       return PULSA_NOMINAL.find(n => n.val === nominal)?.price ?? 0;
     if (tab === "pulsa" && pulsaMode === "data" && dataPkg)
@@ -160,13 +147,73 @@ export default function TopUpPage() {
     return 0;
   };
 
+  const buildOrderNote = (): string => {
+    if (tab === "pulsa" && pulsaMode === "pulsa") {
+      const op = OPERATORS.find(o => o.id === operator)?.label ?? operator;
+      return `Pulsa ${op} ${fmtRp(nominal!)} → ${phone}`;
+    }
+    if (tab === "pulsa" && pulsaMode === "data") {
+      const op  = OPERATORS.find(o => o.id === operator)?.label ?? operator;
+      const pkg = DATA_PACKAGES.find(d => d.id === dataPkg)?.label ?? dataPkg;
+      return `Paket Data ${op} ${pkg} → ${phone}`;
+    }
+    if (tab === "pln") return `Token PLN ${fmtRp(nominal!)} → Meter ${meter}`;
+    if (tab === "ewallet") {
+      const ew = EWALLETS.find(e => e.id === ewallet)?.label ?? ewallet;
+      return `Top Up ${ew} ${fmtRp(nominal!)} → ${phone}`;
+    }
+    return "Transaksi";
+  };
+
+  const handleOrder = async () => {
+    if (!canOrder() || !user) return;
+    const price = selectedPrice();
+
+    // Cek saldo cukup
+    if (balance < price) {
+      setInsufficientFunds(true);
+      return;
+    }
+    setInsufficientFunds(false);
+    setLoading(true);
+
+    // ── DUMMY MODE ────────────────────────────────────────────────
+    // TODO: Ganti dengan call ke provider API (pulsa/PLN/e-wallet)
+    //   sebelum potong saldo, tunggu konfirmasi provider dulu.
+    //   Di production, potong saldo sebaiknya dilakukan dari
+    //   webhook/Edge Function, bukan dari client.
+    await new Promise(r => setTimeout(r, 1800));
+    // ─────────────────────────────────────────────────────────────
+
+    const newBalance = balance - price;
+
+    await supabase.from("wallet_logs").insert({
+      user_id:        user.id,
+      action:         "spend",
+      amount:         price,
+      balance_before: balance,
+      balance_after:  newBalance,
+      note:           buildOrderNote(),
+    });
+
+    await supabase.from("profiles")
+      .update({ balance: newBalance })
+      .eq("id", user.id);
+
+    setBalance(newBalance);
+    setLoading(false);
+    setOrdered(true);
+  };
+
   const TABS: { id: TabId; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: "pulsa",  label: "Pulsa & Data", icon: <Smartphone size={16} strokeWidth={1.8} />, color: "#3B82F6" },
-    { id: "pln",    label: "Token PLN",    icon: <Zap size={16} strokeWidth={1.8} />,        color: "#F59E0B" },
-    { id: "ewallet",label: "E-Wallet",     icon: <Wallet size={16} strokeWidth={1.8} />,     color: "#10B981" },
+    { id: "pulsa",   label: "Pulsa & Data", icon: <Smartphone size={16} strokeWidth={1.8} />, color: "#3B82F6" },
+    { id: "pln",     label: "Token PLN",    icon: <Zap size={16} strokeWidth={1.8} />,        color: "#F59E0B" },
+    { id: "ewallet", label: "E-Wallet",     icon: <Wallet size={16} strokeWidth={1.8} />,     color: "#10B981" },
   ];
 
   const activeColor = TABS.find(t => t.id === tab)?.color ?? "#DC2626";
+  const price       = selectedPrice();
+  const isShort     = price > 0 && balance < price;
 
   return (
     <>
@@ -182,7 +229,6 @@ export default function TopUpPage() {
           padding-bottom: 80px;
         }
 
-        /* ── hero banner ── */
         .tp-banner {
           position: relative; overflow: hidden;
           background: linear-gradient(160deg, #0d0d18 0%, #0a0a12 100%);
@@ -198,10 +244,8 @@ export default function TopUpPage() {
           position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none;
         }
 
-        /* ── inner ── */
         .tp-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 
-        /* ── tabs ── */
         .tp-tabs {
           display: flex; gap: 8px; flex-wrap: wrap;
           background: rgba(255,255,255,.04);
@@ -221,13 +265,11 @@ export default function TopUpPage() {
         .tp-tab.active { color: #fff; }
         .tp-tab:not(.active):hover { background: rgba(255,255,255,.05); color: rgba(255,255,255,.7); }
 
-        /* ── 2-col layout ── */
         .tp-layout {
           display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start;
         }
         @media (max-width: 900px) { .tp-layout { grid-template-columns: 1fr; } }
 
-        /* ── card ── */
         .tp-card {
           background: rgba(255,255,255,.03);
           border: 1px solid rgba(255,255,255,.07);
@@ -239,14 +281,12 @@ export default function TopUpPage() {
           color: rgba(255,255,255,.9); margin-bottom: 22px;
         }
 
-        /* ── section label ── */
         .tp-label {
           font-size: 11px; font-weight: 700; letter-spacing: .1em;
           text-transform: uppercase; color: rgba(255,255,255,.3);
           margin-bottom: 10px;
         }
 
-        /* ── operator / ewallet grid ── */
         .tp-op-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
         @media (max-width: 500px) { .tp-op-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -261,13 +301,8 @@ export default function TopUpPage() {
         }
         .tp-op-btn.active { color: #fff; }
         .tp-op-btn:not(.active):hover { border-color: rgba(255,255,255,.16); background: rgba(255,255,255,.06); }
-        .tp-op-logo {
-          width: 42px;
-          height: 42px;
-          object-fit: contain;
-          display: block;
-        }
-        /* ── sub-mode toggle ── */
+        .tp-op-logo { width: 42px; height: 42px; object-fit: contain; display: block; }
+
         .tp-mode-toggle {
           display: flex; gap: 6px; margin-bottom: 22px;
           background: rgba(255,255,255,.04); border-radius: 9px; padding: 4px;
@@ -282,7 +317,6 @@ export default function TopUpPage() {
         }
         .tp-mode-btn.active { background: rgba(59,130,246,.2); color: #60A5FA; border: 1px solid rgba(59,130,246,.3); }
 
-        /* ── nominal grid ── */
         .tp-nom-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 24px; }
         @media (max-width: 500px) { .tp-nom-grid { grid-template-columns: repeat(2, 1fr); } }
 
@@ -305,7 +339,6 @@ export default function TopUpPage() {
           padding: 2px 8px; border-radius: 4px; white-space: nowrap;
         }
 
-        /* data package list */
         .tp-pkg-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
         .tp-pkg-btn {
           display: flex; align-items: center; justify-content: space-between;
@@ -324,7 +357,6 @@ export default function TopUpPage() {
           padding: 2px 8px; border-radius: 4px; margin-left: 8px;
         }
 
-        /* ── input ── */
         .tp-input-wrap { position: relative; margin-bottom: 20px; }
         .tp-input {
           width: 100%; padding: 13px 16px; border-radius: 10px;
@@ -337,7 +369,6 @@ export default function TopUpPage() {
         .tp-input::placeholder { color: rgba(255,255,255,.25); }
         .tp-input:focus { border-color: rgba(255,255,255,.24); background: rgba(255,255,255,.07); }
 
-        /* ── order summary card ── */
         .tp-summary {
           background: rgba(255,255,255,.03);
           border: 1px solid rgba(255,255,255,.07);
@@ -354,7 +385,6 @@ export default function TopUpPage() {
         }
         .tp-sum-val { font-weight: 700; color: rgba(255,255,255,.85); }
 
-        /* ── CTA button ── */
         .tp-cta {
           width: 100%; padding: 15px; border-radius: 11px;
           border: none; cursor: pointer;
@@ -372,13 +402,11 @@ export default function TopUpPage() {
         }
         .tp-cta:not(:disabled):hover::after { left:130%; }
 
-        /* ── success screen ── */
         .tp-success {
           display: flex; flex-direction: column; align-items: center; gap: 12px;
           padding: 40px 20px; text-align: center;
         }
 
-        /* ── spinner ── */
         @keyframes spin { to { transform: rotate(360deg); } }
         .tp-spinner {
           width: 20px; height: 20px; border-radius: 50%;
@@ -387,7 +415,6 @@ export default function TopUpPage() {
           animation: spin .7s linear infinite;
         }
 
-        /* ── trust pills ── */
         .tp-trust { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
         .tp-trust-pill {
           display: flex; align-items: center; gap: 5px;
@@ -399,7 +426,7 @@ export default function TopUpPage() {
 
       <div className="tp-root">
 
-        {/* ── Banner ── */}
+        {/* Banner */}
         <div className="tp-banner">
           <div className="tp-banner-orb" style={{ width:500,height:500,top:-100,right:-100,background:"rgba(220,38,38,.06)" }} />
           <div className="tp-banner-orb" style={{ width:300,height:300,bottom:-80,left:-50,background:"rgba(59,130,246,.05)" }} />
@@ -424,14 +451,14 @@ export default function TopUpPage() {
               Proses instan, harga termurah, tersedia 24 jam. Pilih layanan yang kamu butuhkan.
             </p>
             <div className="tp-trust">
-              {["⚡ Proses < 1 Menit","🔒 Transaksi Aman","💳 Semua Metode Bayar","⭐ 4.9 / 5 Rating"].map(t=>(
+              {["⚡ Proses < 1 Menit","🔒 Transaksi Aman","💳 Bayar Pakai Saldo OkeGass","⭐ 4.9 / 5 Rating"].map(t=>(
                 <div key={t} className="tp-trust-pill">{t}</div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* ── Main content ── */}
+        {/* Main */}
         <div className="tp-inner" style={{ marginTop:36 }}>
 
           {/* Tabs */}
@@ -448,24 +475,21 @@ export default function TopUpPage() {
             ))}
           </div>
 
-          {/* Layout */}
           <div className="tp-layout">
 
             {/* ── LEFT: form ── */}
             <div>
 
-              {/* ══ PULSA & DATA ══ */}
+              {/* PULSA & DATA */}
               {tab === "pulsa" && (
                 <div className="tp-card">
                   <div className="tp-card-title">Pulsa &amp; Paket Data</div>
 
-                  {/* sub-mode */}
                   <div className="tp-mode-toggle">
-                    <button className={`tp-mode-btn ${pulsaMode==="pulsa"?"active":""}`} onClick={()=>setPulsaMode("pulsa")}>📶 Pulsa</button>
-                    <button className={`tp-mode-btn ${pulsaMode==="data"?"active":""}`}  onClick={()=>setPulsaMode("data")}>📡 Paket Data</button>
+                    <button className={`tp-mode-btn ${pulsaMode==="pulsa"?"active":""}`} onClick={()=>{ setPulsaMode("pulsa"); setNominal(null); setDataPkg(""); }}>📶 Pulsa</button>
+                    <button className={`tp-mode-btn ${pulsaMode==="data"?"active":""}`}  onClick={()=>{ setPulsaMode("data");  setNominal(null); setDataPkg(""); }}>📡 Paket Data</button>
                   </div>
 
-                  {/* Operator */}
                   <div className="tp-label">Pilih Operator</div>
                   <div className="tp-op-grid">
                     {OPERATORS.map(op => (
@@ -475,17 +499,12 @@ export default function TopUpPage() {
                         style={operator===op.id ? { borderColor:`${op.color}60`, background:`${op.color}15`, color:"#fff" } : {}}
                         onClick={() => { setOperator(op.id); setNominal(null); setDataPkg(""); }}
                       >
-                        <img
-                          src={op.logo}
-                          alt={op.label}
-                          className="tp-op-logo"
-                        />
+                        <img src={op.logo} alt={op.label} className="tp-op-logo" />
                         {op.label}
                       </button>
                     ))}
                   </div>
 
-                  {/* Nominal / Package */}
                   {pulsaMode === "pulsa" ? (
                     <>
                       <div className="tp-label">Pilih Nominal</div>
@@ -531,7 +550,6 @@ export default function TopUpPage() {
                     </>
                   )}
 
-                  {/* Phone */}
                   <div className="tp-label">Nomor HP</div>
                   <div className="tp-input-wrap">
                     <input
@@ -546,12 +564,11 @@ export default function TopUpPage() {
                 </div>
               )}
 
-              {/* ══ TOKEN PLN ══ */}
+              {/* TOKEN PLN */}
               {tab === "pln" && (
                 <div className="tp-card">
                   <div className="tp-card-title">Token Listrik PLN</div>
 
-                  {/* Meter number */}
                   <div className="tp-label">Nomor Meter / ID Pelanggan</div>
                   <div className="tp-input-wrap">
                     <input
@@ -565,7 +582,6 @@ export default function TopUpPage() {
                     />
                   </div>
 
-                  {/* Nominal */}
                   <div className="tp-label">Pilih Nominal Token</div>
                   <div className="tp-nom-grid">
                     {PLN_NOMINAL.map(n => (
@@ -581,7 +597,6 @@ export default function TopUpPage() {
                     ))}
                   </div>
 
-                  {/* info box */}
                   <div style={{
                     padding:"12px 14px", borderRadius:10, marginTop:4,
                     background:"rgba(245,158,11,.07)", border:"1px solid rgba(245,158,11,.2)",
@@ -592,12 +607,11 @@ export default function TopUpPage() {
                 </div>
               )}
 
-              {/* ══ E-WALLET ══ */}
+              {/* E-WALLET */}
               {tab === "ewallet" && (
                 <div className="tp-card">
                   <div className="tp-card-title">Top Up E-Wallet</div>
 
-                  {/* E-wallet selection */}
                   <div className="tp-label">Pilih E-Wallet</div>
                   <div className="tp-op-grid">
                     {EWALLETS.map(ew => (
@@ -607,13 +621,12 @@ export default function TopUpPage() {
                         style={ewallet===ew.id ? { borderColor:`${ew.color}60`, background:`${ew.color}15`, color:"#fff" } : {}}
                         onClick={() => { setEwallet(ew.id); setNominal(null); }}
                       >
-                        <span className="tp-op-logo">{ew.logo}</span>
+                        <span style={{ fontSize:28 }}>{ew.logo}</span>
                         {ew.label}
                       </button>
                     ))}
                   </div>
 
-                  {/* Nominal */}
                   <div className="tp-label">Pilih Nominal</div>
                   <div className="tp-nom-grid">
                     {EWALLET_NOMINAL.map(n => (
@@ -629,7 +642,6 @@ export default function TopUpPage() {
                     ))}
                   </div>
 
-                  {/* Phone / account number */}
                   <div className="tp-label">Nomor HP / Akun E-Wallet</div>
                   <div className="tp-input-wrap">
                     <input
@@ -657,6 +669,20 @@ export default function TopUpPage() {
                     <p style={{ fontSize:13, color:"rgba(255,255,255,.45)", lineHeight:1.65 }}>
                       Transaksi sedang diproses. Token / saldo akan masuk dalam beberapa detik.
                     </p>
+                    {/* Saldo setelah transaksi */}
+                    <div style={{
+                      width:"100%", padding:"12px 16px", borderRadius:10, marginTop:4,
+                      background:"rgba(16,185,129,.07)", border:"1px solid rgba(16,185,129,.2)",
+                      display:"flex", alignItems:"center", justifyContent:"space-between",
+                    }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                        <Wallet size={13} color="#10B981" />
+                        <span style={{ fontSize:12, color:"rgba(255,255,255,.4)", fontWeight:600 }}>Saldo tersisa</span>
+                      </div>
+                      <span style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:15, fontWeight:700, color:"#10B981" }}>
+                        {fmtRp(balance)}
+                      </span>
+                    </div>
                     <button
                       className="tp-cta"
                       style={{ background:"rgba(16,185,129,.15)", border:"1px solid rgba(16,185,129,.35)", color:"#10B981", marginTop:8 }}
@@ -668,9 +694,50 @@ export default function TopUpPage() {
                 </div>
               ) : (
                 <div className="tp-summary">
-                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, marginBottom:20, color:"rgba(255,255,255,.9)" }}>
+                  <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, marginBottom:16, color:"rgba(255,255,255,.9)" }}>
                     Ringkasan Pesanan
                   </div>
+
+                  {/* ── Wallet balance strip ── */}
+                  <div style={{
+                    display:"flex", alignItems:"center", justifyContent:"space-between",
+                    padding:"10px 14px", borderRadius:10, marginBottom:16,
+                    background: isShort ? "rgba(248,113,113,.06)" : "rgba(255,255,255,.04)",
+                    border: `1px solid ${isShort ? "rgba(248,113,113,.35)" : "rgba(255,255,255,.07)"}`,
+                    transition:"all .2s",
+                  }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                      <Wallet size={13} color={isShort ? "#F87171" : "#DC2626"} />
+                      <span style={{ fontSize:12, color:"rgba(255,255,255,.4)", fontWeight:600 }}>Saldo OkeGass</span>
+                    </div>
+                    <span style={{
+                      fontFamily:"'Rajdhani',sans-serif", fontSize:15, fontWeight:700,
+                      color: isShort ? "#F87171" : "#fff",
+                    }}>
+                      {fmtRp(balance)}
+                    </span>
+                  </div>
+
+                  {/* Insufficient funds warning */}
+                  {insufficientFunds && (
+                    <div style={{
+                      display:"flex", gap:8, alignItems:"flex-start",
+                      padding:"10px 12px", borderRadius:9, marginBottom:14,
+                      background:"rgba(248,113,113,.08)", border:"1px solid rgba(248,113,113,.3)",
+                      fontSize:12, color:"#F87171", lineHeight:1.55,
+                    }}>
+                      <AlertCircle size={13} style={{ flexShrink:0, marginTop:1 }} />
+                      <span>
+                        Saldo tidak cukup.{" "}
+                        <button
+                          onClick={() => navigate("/wallet")}
+                          style={{ background:"none", border:"none", cursor:"pointer", color:"#DC2626", fontWeight:700, fontSize:12, padding:0, fontFamily:"'Barlow',sans-serif", textDecoration:"underline" }}
+                        >
+                          Top Up dulu →
+                        </button>
+                      </span>
+                    </div>
+                  )}
 
                   {/* Summary rows */}
                   {tab === "pulsa" && operator && (
@@ -722,8 +789,7 @@ export default function TopUpPage() {
                     </div>
                   )}
 
-                  {/* Divider + total */}
-                  {selectedPrice() > 0 && (
+                  {price > 0 && (
                     <>
                       <div className="tp-sum-row">
                         <span>Biaya Admin</span>
@@ -731,18 +797,22 @@ export default function TopUpPage() {
                       </div>
                       <div className="tp-sum-row total">
                         <span>Total Bayar</span>
-                        <span style={{ color: activeColor, fontFamily:"'Rajdhani',sans-serif", fontSize:18 }}>
-                          {fmtRp(selectedPrice())}
+                        <span style={{ color: isShort ? "#F87171" : activeColor, fontFamily:"'Rajdhani',sans-serif", fontSize:18 }}>
+                          {fmtRp(price)}
                         </span>
                       </div>
+                      {/* Saldo setelah jika cukup */}
+                      {!isShort && (
+                        <div style={{ display:"flex", justifyContent:"space-between", fontSize:11, color:"rgba(255,255,255,.25)", marginTop:6 }}>
+                          <span>Saldo setelah bayar</span>
+                          <span>{fmtRp(balance - price)}</span>
+                        </div>
+                      )}
                     </>
                   )}
 
-                  {!selectedPrice() && (
-                    <div style={{
-                      textAlign:"center", padding:"28px 0",
-                      fontSize:13, color:"rgba(255,255,255,.2)",
-                    }}>
+                  {!price && (
+                    <div style={{ textAlign:"center", padding:"28px 0", fontSize:13, color:"rgba(255,255,255,.2)" }}>
                       Pilih layanan &amp; nominal<br/>untuk melihat ringkasan
                     </div>
                   )}
@@ -765,13 +835,12 @@ export default function TopUpPage() {
                     {loading ? (
                       <><div className="tp-spinner" /> Memproses...</>
                     ) : (
-                      <>Bayar Sekarang <ArrowRight size={16} /></>
+                      <>Bayar Pakai Saldo <ArrowRight size={16} /></>
                     )}
                   </button>
 
-                  {/* trust mini */}
                   <div style={{ display:"flex", flexDirection:"column", gap:7, marginTop:18 }}>
-                    {["🔒 Transaksi terenkripsi SSL","⚡ Proses otomatis real-time","💳 Bayar pakai semua metode"].map(t => (
+                    {["🔒 Transaksi terenkripsi SSL","⚡ Proses otomatis real-time","💰 Saldo terpotong otomatis"].map(t => (
                       <div key={t} style={{ fontSize:11, color:"rgba(255,255,255,.25)", display:"flex", alignItems:"center", gap:6 }}>
                         {t}
                       </div>
