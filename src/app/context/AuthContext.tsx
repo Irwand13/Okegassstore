@@ -57,23 +57,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading]             = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
-  // ✅ Cegah double call loadProfile
   const loadingProfileRef = useRef(false);
+  const mountedRef        = useRef(true);
 
+  // ─── Load profile dengan timeout sendiri ─────────────────────
   const loadProfile = async (userId: string, email?: string) => {
-    // Kalau sedang loading, skip
     if (loadingProfileRef.current) return;
     loadingProfileRef.current = true;
 
     try {
-      const { data, error } = await getProfile(userId);
-      if (error) console.error("❌ getProfile error:", error.message);
+      // Race antara getProfile vs timeout 20 detik
+      const result = await Promise.race([
+        getProfile(userId),
+        new Promise<{ data: null; error: Error }>((resolve) =>
+          setTimeout(
+            () => resolve({ data: null, error: new Error("Profile timeout") }),
+            20000
+          )
+        ),
+      ]);
+
+      const { data, error } = result;
+
+      if (error && error.message !== "Profile timeout") {
+        console.error("❌ getProfile error:", error.message);
+      }
+
+      if (!mountedRef.current) return;
 
       if (data) {
         setProfile(data);
         setUser(mapProfileToUser({ id: userId, email }, data));
       } else {
-        // Profile belum ada di DB
+        // Gagal ambil profile — set user minimal dari session
+        // TIDAK logout, user tetap login
         setUser({
           id:       userId,
           name:     email?.split("@")[0] || "User",
@@ -83,120 +100,115 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           balance:  0,
         });
       }
+    } catch (err) {
+      console.error("loadProfile exception:", err);
+      // Tetap set user minimal supaya tidak logout
+      if (mountedRef.current) {
+        setUser({
+          id:     userId,
+          name:   email?.split("@")[0] || "User",
+          email:  email || "",
+          avatar: "👤",
+          verified: false,
+          balance: 0,
+        });
+      }
     } finally {
       loadingProfileRef.current = false;
     }
   };
 
   const refreshProfile = async () => {
-    loadingProfileRef.current = false; // reset flag supaya bisa refresh paksa
+    loadingProfileRef.current = false;
     if (session?.user) {
       await loadProfile(session.user.id, session.user.email);
     }
   };
 
-  // ─── CLEAR ALL STORAGE & COOKIES
-  const clearAllStorage = () => {
-    try {
-      // Clear localStorage
-      localStorage.clear();
-      
-      // Clear sessionStorage
-      sessionStorage.clear();
-      
-      // Clear specific Supabase keys - clear dengan berbagai varian
-      const keysToRemove = [
-        'sb-yiqeybjphrkmfjcmgeix-auth-token',
-        'supabase.auth.token',
-        'auth.session',
-        'auth.user',
-        'SUPABASE_SESSION',
-        'sb_' // prefix Supabase
-      ];
-      
-      // Remove keys from localStorage
-      Object.keys(localStorage).forEach(key => {
-        if (keysToRemove.some(k => key.includes(k))) {
-          localStorage.removeItem(key);
-          console.log(`🗑️ Removed localStorage: ${key}`);
-        }
-      });
-      
-      // Remove keys from sessionStorage
-      Object.keys(sessionStorage).forEach(key => {
-        if (keysToRemove.some(k => key.includes(k))) {
-          sessionStorage.removeItem(key);
-          console.log(`🗑️ Removed sessionStorage: ${key}`);
-        }
-      });
-      
-      // Clear IndexedDB
-      if (window.indexedDB) {
-        try {
-          const request = window.indexedDB.deleteDatabase('supabase');
-          request.onsuccess = () => console.log("✅ IndexedDB cleared");
-        } catch (e) {
-          console.error("IndexedDB clear error:", e);
-        }
-      }
-      
-      // Clear semua cookies dengan berbagai cara
-      document.cookie.split(";").forEach((c) => {
-        const eqPos = c.indexOf("=");
-        const name = eqPos > -1 ? c.substr(0, eqPos).trim() : c.trim();
-        if (name) {
-          // Clear dengan path /
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`;
-          // Clear dengan domain
-          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;domain=${window.location.hostname};SameSite=Lax`;
-          console.log(`🗑️ Cleared cookie: ${name}`);
-        }
-      });
-      
-      console.log("✅ COMPLETE: Semua storage, localStorage, sessionStorage, IndexedDB & cookies dihapus");
-    } catch (error) {
-      console.error("❌ Error clearing storage:", error);
-    }
-  };
-
+  // ─── Auth init ───────────────────────────────────────────────
   useEffect(() => {
-    // ✅ Pakai HANYA onAuthStateChange — tidak perlu getSession terpisah
-    // onAuthStateChange otomatis fire INITIAL_SESSION saat pertama mount
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("🔄 Auth event:", event);
-        setSession(session);
+    mountedRef.current = true;
 
-        if (session?.user) {
-          await loadProfile(session.user.id, session.user.email);
+    // Timeout 30 detik — hanya untuk stop spinner, TIDAK clear user
+    const timeout = setTimeout(() => {
+      if (mountedRef.current) {
+        console.warn("⚠️ Auth init timeout — stop loading spinner");
+        setLoading(false);
+      }
+    }, 30000);
+
+    // Cek session existing
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (!mountedRef.current) return;
+
+      // Cancel timeout karena Supabase sudah respond
+      clearTimeout(timeout);
+
+      if (error) {
+        console.error("getSession error:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      setSession(session);
+
+      if (session?.user) {
+        await loadProfile(session.user.id, session.user.email);
+      }
+
+      if (mountedRef.current) setLoading(false);
+
+    }).catch((err) => {
+      console.error("getSession exception:", err);
+      clearTimeout(timeout);
+      if (mountedRef.current) setLoading(false);
+    });
+
+    // Listen perubahan auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, newSession) => {
+        if (!mountedRef.current) return;
+
+        // INITIAL_SESSION dihandle oleh getSession di atas
+        if (event === "INITIAL_SESSION") return;
+
+        console.log("🔄 Auth event:", event);
+
+        setSession(newSession);
+
+        if (newSession?.user) {
+          // Reset flag supaya bisa load ulang saat login
+          loadingProfileRef.current = false;
+          await loadProfile(newSession.user.id, newSession.user.email);
         } else {
-          // Tidak ada session - clear all storage untuk clean state
+          // Logout — clear state
           setUser(null);
           setProfile(null);
-          // Jangan clear storage di sini - hanya clear saat logout manual
         }
 
-        // Loading selesai setelah event pertama
-        setLoading(false);
+        if (mountedRef.current) setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // ─── LOGIN
+  // ─── LOGIN ───────────────────────────────────────────────────
   const login = async (
     email: string,
     password: string
   ): Promise<{ error: string | null }> => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
-    // onAuthStateChange akan handle set user & profile otomatis
     setShowAuthModal(false);
     return { error: null };
   };
 
-  // ─── REGISTER
+  // ─── REGISTER ────────────────────────────────────────────────
   const register = async (
     name: string,
     email: string,
@@ -218,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
+  // ─── GOOGLE LOGIN ─────────────────────────────────────────────
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -225,13 +238,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // ─── LOGOUT ──────────────────────────────────────────────────
   const logout = async () => {
-    await supabase.auth.signOut();
+    // Clear state dulu sebelum signOut
     setUser(null);
     setProfile(null);
     setSession(null);
-    clearAllStorage();
-    // onAuthStateChange akan handle clear user & profile
+    loadingProfileRef.current = false;
+
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("signOut error:", err);
+    }
+    // onAuthStateChange akan fire SIGNED_OUT — tidak perlu hapus storage manual
   };
 
   return (
