@@ -236,38 +236,51 @@ export default function WalletPage() {
   };
 
   const handleTopUp = async () => {
-    if (!user || finalTopupAmount < 10000 || !topupMethod) return;
-    setTopupLoading(true);
+  if (!user || finalTopupAmount < 10000 || !topupMethod) return;
+  setTopupLoading(true);
 
-    // TODO: Integrasi Midtrans Snap
-    // 1. Call Edge Function → dapat snapToken
-    // 2. window.snap.pay(snapToken, { onSuccess, onPending, onError })
-    // 3. Webhook Midtrans → update balance di Supabase
-    //
-    // Untuk sekarang (prototype): simulasi sukses setelah 2 detik
-    await new Promise(r => setTimeout(r, 100));
-
-    // Insert log (akan diganti webhook di production)
-    await supabase.from("wallet_logs").insert({
-      user_id:        user.id,
-      action:         "topup",
-      amount:         finalTopupAmount,
-      balance_before: balance,
-      balance_after:  balance + finalTopupAmount,
-      note:           `Top Up via ${topupMethod}`,
+  try {
+    // 1. Panggil Edge Function untuk dapat snap token
+    const { data, error } = await supabase.functions.invoke("midtrans-create", {
+      body: { amount: finalTopupAmount },
     });
 
-    await supabase.from("profiles")
-      .update({ balance: balance + finalTopupAmount })
-      .eq("id", user.id);
+    if (error || data?.error) {
+      throw new Error(data?.error || error?.message || "Gagal membuat transaksi");
+    }
 
-    setBalance(b => b + finalTopupAmount);
+    const { token } = data;
+
+    // 2. Cek Snap sudah load
+    if (!(window as any).snap) {
+      throw new Error("Midtrans Snap belum dimuat. Coba refresh halaman.");
+    }
+
     setTopupLoading(false);
     setModal(null);
-    setTopupAmount(null);
-    setTopupCustom("");
-    setTopupMethod(null);
-    await fetchData();
+
+    // 3. Buka popup Midtrans
+    (window as any).snap.pay(token, {
+      onSuccess: () => {
+        fetchData(); // refresh saldo & logs
+      },
+      onPending: () => {
+        alert("Pembayaran pending. Selesaikan sesuai instruksi.");
+        fetchData();
+      },
+      onError: (err: any) => {
+        console.error(err);
+        alert("Pembayaran gagal. Coba lagi.");
+      },
+      onClose: () => {
+        console.log("Popup ditutup");
+      },
+    });
+
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan");
+      setTopupLoading(false);
+    }
   };
 
   const handleWithdraw = async () => {
