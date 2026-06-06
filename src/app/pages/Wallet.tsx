@@ -240,9 +240,16 @@ export default function WalletPage() {
   setTopupLoading(true);
 
   try {
-    // 1. Panggil Edge Function untuk dapat snap token
+    // Ambil session token dulu
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error("Sesi tidak ditemukan, silakan login ulang.");
+
+    // Panggil Edge Function dengan token eksplisit
     const { data, error } = await supabase.functions.invoke("midtrans-create", {
       body: { amount: finalTopupAmount },
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
     });
 
     if (error || data?.error) {
@@ -251,7 +258,6 @@ export default function WalletPage() {
 
     const { token } = data;
 
-    // 2. Cek Snap sudah load
     if (!(window as any).snap) {
       throw new Error("Midtrans Snap belum dimuat. Coba refresh halaman.");
     }
@@ -259,22 +265,11 @@ export default function WalletPage() {
     setTopupLoading(false);
     setModal(null);
 
-    // 3. Buka popup Midtrans
     (window as any).snap.pay(token, {
-      onSuccess: () => {
-        fetchData(); // refresh saldo & logs
-      },
-      onPending: () => {
-        alert("Pembayaran pending. Selesaikan sesuai instruksi.");
-        fetchData();
-      },
-      onError: (err: any) => {
-        console.error(err);
-        alert("Pembayaran gagal. Coba lagi.");
-      },
-      onClose: () => {
-        console.log("Popup ditutup");
-      },
+      onSuccess: () => { fetchData(); },
+      onPending: () => { alert("Pending. Selesaikan pembayaran."); fetchData(); },
+      onError:   (err: any) => { console.error(err); alert("Pembayaran gagal."); },
+      onClose:   () => { console.log("Popup ditutup"); },
     });
 
     } catch (err: any) {
