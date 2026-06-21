@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
 import {
   Zap, ChevronRight, Shield, Clock, CreditCard,
   Wallet, Smartphone, CheckCircle, User, Hash,
-  AlertCircle, ArrowLeft, Loader2, RefreshCw
+  AlertCircle, ArrowLeft, Loader2, RefreshCw, Hourglass
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -35,6 +35,10 @@ const GAMES: Game[] = [
 ];
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");
+
+// FIX: polling config untuk status pending
+const POLL_INTERVAL_MS = 5000;   // cek tiap 5 detik
+const POLL_MAX_ATTEMPTS = 24;    // maksimal 2 menit (24 x 5s)
 
 const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
@@ -127,6 +131,7 @@ const STYLES = `
 @keyframes tuFadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 .tu-animate { animation:tuFadeUp 0.4s ease forwards; }
 @keyframes spin { to{transform:rotate(360deg)} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 `;
 
 export default function TopUp() {
@@ -137,12 +142,16 @@ export default function TopUp() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [userId,          setUserId]          = useState("");
   const [serverId,        setServerId]        = useState("");
-  const [step,            setStep]            = useState<"form"|"confirm"|"processing"|"success"|"failed">("form");
+  // FIX: tambah state "pending" terpisah dari "failed"
+  const [step, setStep] = useState<"form" | "confirm" | "processing" | "success" | "pending" | "failed">("form");
   const [products,        setProducts]        = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [processing,      setProcessing]      = useState(false);
   const [txResult,        setTxResult]        = useState<{ ref_id: string; status: string; message?: string } | null>(null);
   const [checkingStatus,  setCheckingStatus]  = useState(false);
+  const [pollAttempts,    setPollAttempts]    = useState(0);
+
+  const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const currentGame = GAMES.find(g => g.id === selectedGame)!;
   const saldo       = profile?.balance ?? 0;
@@ -163,6 +172,44 @@ export default function TopUp() {
         setLoadingProducts(false);
       });
   }, [selectedGame]);
+
+  // FIX: auto-poll status saat step === "pending"
+  useEffect(() => {
+    if (step !== "pending" || !txResult?.ref_id) {
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
+      return;
+    }
+
+    pollTimerRef.current = setInterval(async () => {
+      setPollAttempts(prev => {
+        const next = prev + 1;
+        if (next >= POLL_MAX_ATTEMPTS) {
+          // Sudah 2 menit, stop auto-poll — biarkan user cek manual
+          if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+        }
+        return next;
+      });
+
+      const { data } = await supabase
+        .from("topup_game_transactions")
+        .select("status, message, digiflazz_ref")
+        .eq("id", txResult.ref_id)
+        .single();
+
+      if (data && data.status !== "pending") {
+        setTxResult(prev => ({ ...prev!, status: data.status, message: data.message }));
+        setStep(data.status === "success" ? "success" : "failed");
+        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      }
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    };
+  }, [step, txResult?.ref_id]);
 
   // ── Proses top up ─────────────────────────────────────────────
   const handleProcess = async () => {
@@ -185,7 +232,17 @@ export default function TopUp() {
       if (error || data?.error) throw new Error(data?.error || error?.message);
 
       setTxResult(data);
-      setStep(data.status === "failed" ? "failed" : "success");
+      setPollAttempts(0);
+
+      // FIX: pisahkan 3 outcome dengan jelas
+      if (data.status === "success") {
+        setStep("success");
+      } else if (data.status === "failed") {
+        setStep("failed");
+      } else {
+        // pending — mulai auto-poll
+        setStep("pending");
+      }
 
     } catch (err: any) {
       setTxResult({ ref_id: "", status: "failed", message: err.message });
@@ -208,6 +265,7 @@ export default function TopUp() {
       setTxResult(prev => ({ ...prev!, status: data.status, message: data.message }));
       if (data.status === "success") setStep("success");
       if (data.status === "failed")  setStep("failed");
+      // kalau masih "pending", tetap di step "pending" — biarkan auto-poll lanjut
     }
     setCheckingStatus(false);
   };
@@ -218,6 +276,7 @@ export default function TopUp() {
     setUserId("");
     setServerId("");
     setTxResult(null);
+    setPollAttempts(0);
   };
 
   // ── Processing screen ─────────────────────────────────────────
@@ -236,6 +295,65 @@ export default function TopUp() {
           <p style={{ color:"rgba(255,255,255,0.25)", fontSize:12, marginTop:8 }}>
             Jangan tutup halaman ini
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Pending screen — FIX: layar baru, terpisah dari failed ────
+  if (step === "pending") {
+    const stillPolling = pollAttempts < POLL_MAX_ATTEMPTS;
+    return (
+      <div className="tu-page-center">
+        <style>{STYLES}</style>
+        <div style={{ textAlign:"center", maxWidth:420 }}>
+          <div style={{
+            width:88, height:88, background:"rgba(245,158,11,0.12)",
+            border:"1px solid rgba(245,158,11,0.3)", borderRadius:"50%",
+            display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 24px",
+            animation: stillPolling ? "pulse 1.6s ease-in-out infinite" : undefined,
+          }}>
+            <Hourglass size={40} color="#F59E0B" strokeWidth={1.5} />
+          </div>
+          <div style={{ display:"inline-flex", alignItems:"center", gap:6, background:"rgba(245,158,11,0.1)", border:"1px solid rgba(245,158,11,0.3)", borderRadius:6, padding:"4px 12px", marginBottom:14 }}>
+            <span style={{ fontSize:11, fontWeight:700, color:"#F59E0B", textTransform:"uppercase" as const, letterSpacing:"0.1em" }}>
+              Sedang Diproses
+            </span>
+          </div>
+          <h1 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:30, fontWeight:700, color:"#fff", margin:"0 0 10px" }}>
+            Top Up Dalam Antrian
+          </h1>
+          <p style={{ color:"rgba(255,255,255,0.5)", fontSize:14, margin:"0 0 6px" }}>
+            {selectedProduct?.name} untuk akun <strong style={{ color:"#fff" }}>{userId}{serverId ? ` (${serverId})` : ""}</strong>
+          </p>
+          <p style={{ color:"rgba(255,255,255,0.3)", fontSize:13, margin:"0 0 6px" }}>
+            Digiflazz masih memproses transaksi ini. Saldo kamu <strong style={{ color:"#10B981" }}>sudah terpotong</strong> dan akan otomatis dikembalikan jika transaksi akhirnya gagal.
+          </p>
+          <p style={{ color:"rgba(255,255,255,0.25)", fontSize:12, margin:"0 0 28px" }}>
+            Ref: {txResult?.ref_id}
+          </p>
+
+          {stillPolling ? (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginBottom:20, color:"rgba(255,255,255,0.35)", fontSize:13 }}>
+              <Loader2 size={14} style={{ animation:"spin 0.8s linear infinite" }} />
+              Memeriksa status otomatis...
+            </div>
+          ) : (
+            <button
+              onClick={handleCheckStatus}
+              disabled={checkingStatus}
+              style={{ display:"flex", alignItems:"center", gap:6, margin:"0 auto 16px", background:"none", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"8px 16px", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontFamily:"'Barlow',sans-serif", fontSize:13, fontWeight:600 }}
+            >
+              <RefreshCw size={13} style={checkingStatus ? { animation:"spin 0.8s linear infinite" } : {}} />
+              Cek Status Sekarang
+            </button>
+          )}
+
+          <div>
+            <button onClick={handleReset} className="tu-proceed-btn" style={{ width:"auto", padding:"12px 28px" }}>
+              Top Up Lainnya
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -293,17 +411,6 @@ export default function TopUp() {
           <p style={{ color:"rgba(16,185,129,0.7)", fontSize:13, margin:"0 0 24px" }}>
             ✅ Saldo kamu sudah dikembalikan otomatis
           </p>
-
-          {txResult?.ref_id && (
-            <button
-              onClick={handleCheckStatus}
-              disabled={checkingStatus}
-              style={{ display:"flex", alignItems:"center", gap:6, margin:"0 auto 16px", background:"none", border:"1px solid rgba(255,255,255,0.1)", borderRadius:8, padding:"8px 16px", color:"rgba(255,255,255,0.5)", cursor:"pointer", fontFamily:"'Barlow',sans-serif", fontSize:13, fontWeight:600 }}
-            >
-              <RefreshCw size={13} style={checkingStatus ? { animation:"spin 0.8s linear infinite" } : {}} />
-              Cek Status Ulang
-            </button>
-          )}
 
           <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
             <button onClick={handleReset} className="tu-proceed-btn" style={{ width:"auto", padding:"12px 28px" }}>
@@ -447,7 +554,7 @@ export default function TopUp() {
                 </div>
                 {currentGame.need_server_id && (
                   <div>
-                    <div className="tu-input-label"><Hash size={11} /> Server ID</div>
+                    <div className="tu-input-label"><Hash size={11} /> Server ID *</div>
                     <input type="text" value={serverId} onChange={e => setServerId(e.target.value)} placeholder="Contoh: 1234" className="tu-input" />
                   </div>
                 )}

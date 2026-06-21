@@ -137,10 +137,14 @@ serve(async (req) => {
     }
 
     const balanceBefore = profile.balance;
-    const refId         = `OKG-${Date.now()}-${user.id.slice(0, 6)}`;
-    const sign          = md5(DIGI_USERNAME + DIGI_API_KEY + refId);
+    const refId           = `OKG-${Date.now()}-${user.id.slice(0, 6)}`;
+    const sign             = md5(DIGI_USERNAME + DIGI_API_KEY + refId);
 
-    const customerNo = serverId ? `${target}(${serverId})` : target;
+    // FIX: format customer_no untuk Mobile Legends — gabungan LANGSUNG
+    // antara User ID dan Zone ID, TANPA separator (bukan slash, bukan kurung).
+    // Contoh: userId "123456789" + zoneId "1234" → customer_no "1234567891234"
+    // Game lain yang tidak butuh server ID (seperti Free Fire) cukup pakai userId saja.
+    const customerNo = serverId ? `${target}${serverId}` : target;
 
     // ── STEP 1: Buat transaksi (status: pending) ──────────────
     const { error: txErr } = await supabase.from("topup_game_transactions").insert({
@@ -156,15 +160,19 @@ serve(async (req) => {
     });
     if (txErr) throw new Error("Gagal membuat transaksi: " + txErr.message);
 
-    // ── STEP 2: Potong saldo ──────────────────────────────────
-    const { error: balErr } = await supabase
+    // ── STEP 2: Potong saldo (dengan optimistic lock) ─────────
+    // FIX: tambahkan .eq("balance", balanceBefore) supaya tidak terjadi
+    // race condition kalau ada 2 request top up bersamaan dari user yang sama
+    const { data: deductResult, error: balErr } = await supabase
       .from("profiles")
       .update({ balance: balanceBefore - product.price })
-      .eq("id", user.id);
+      .eq("id", user.id)
+      .eq("balance", balanceBefore)
+      .select("id");
 
-    if (balErr) {
+    if (balErr || !deductResult || deductResult.length === 0) {
       await supabase.from("topup_game_transactions").delete().eq("id", refId);
-      throw new Error("Gagal memotong saldo: " + balErr.message);
+      throw new Error("Saldo berubah saat transaksi diproses, silakan coba lagi.");
     }
 
     // ── STEP 3: Log wallet ────────────────────────────────────
@@ -181,10 +189,11 @@ serve(async (req) => {
     // ── STEP 4: Kirim ke Digiflazz VIA CLOUDFLARE PROXY ──────
     let d: any = null;
     let digiError: string | null = null;
+    let isTimeout = false;
 
     try {
       const controller = new AbortController();
-      const timeout    = setTimeout(() => controller.abort(), 15_000);
+      const timeout     = setTimeout(() => controller.abort(), 15_000);
 
       const res = await fetch(PROXY_URL, {
         method:  "POST",
@@ -208,30 +217,47 @@ serve(async (req) => {
       if (!d) digiError = json?.message || "Response kosong dari Digiflazz";
 
     } catch (fetchErr: any) {
-      digiError = fetchErr.name === "AbortError" ? "timeout" : fetchErr.message;
+      isTimeout = fetchErr.name === "AbortError";
+      digiError = isTimeout ? "Timeout — belum dapat respons dari Digiflazz" : fetchErr.message;
     }
 
-    // ── STEP 5: Proses response ───────────────────────────────
-    const digiStatus  = d?.status;
-    const finalStatus =
-      digiStatus === "Sukses" ? "success" :
-      digiStatus === "Gagal"  ? "failed"  :
-      digiError === "timeout" ? "pending" :
-      d === null              ? "pending" :
-      "pending";
+    // ── STEP 5: Tentukan status final ─────────────────────────
+    // FIX: logic diperjelas — 3 kasus jelas terpisah:
+    //   a) Digiflazz balas eksplisit "Sukses"/"Gagal" → pakai itu
+    //   b) Digiflazz balas "Pending" eksplisit → pending (perlu cek ulang nanti)
+    //   c) Timeout/network error/response kosong → pending JUGA, karena kita
+    //      TIDAK TAHU apakah Digiflazz sebenarnya sudah memproses atau belum.
+    //      Status "Gagal" hanya boleh dipakai kalau Digiflazz EKSPLISIT bilang gagal,
+    //      supaya tidak salah refund saat transaksi sebenarnya berhasil di sisi mereka.
+    let finalStatus: "success" | "failed" | "pending";
+
+    if (digiError) {
+      // Network-level error / timeout / parse gagal → tidak tahu nasib transaksi
+      finalStatus = "pending";
+    } else if (d?.status === "Sukses") {
+      finalStatus = "success";
+    } else if (d?.status === "Gagal") {
+      finalStatus = "failed";
+    } else {
+      // d?.status === "Pending" atau status tidak dikenali
+      finalStatus = "pending";
+    }
 
     await supabase.from("topup_game_transactions")
       .update({
         status:        finalStatus,
         digiflazz_ref: d?.sn      || null,
         message:       d?.message || digiError || null,
+        rc:            d?.rc      || null,
       })
       .eq("id", refId);
 
-    // ── STEP 6: Refund jika gagal ─────────────────────────────
+    // ── STEP 6: Refund HANYA jika eksplisit gagal ─────────────
     if (finalStatus === "failed") {
       await Promise.all([
-        supabase.from("profiles").update({ balance: balanceBefore }).eq("id", user.id),
+        supabase.from("profiles")
+          .update({ balance: balanceBefore })
+          .eq("id", user.id),
         supabase.from("wallet_logs").insert({
           user_id:        user.id,
           action:         "refund",
@@ -257,6 +283,16 @@ serve(async (req) => {
         type:    "topup_game_success",
         title:   "Top Up Berhasil! ✅",
         message: `${product.name} berhasil masuk ke akun ${customerNo}`,
+      });
+    }
+
+    // ── STEP 8: Notif pending (supaya user tahu harus cek nanti) ──
+    if (finalStatus === "pending") {
+      await supabase.from("notifications").insert({
+        user_id: user.id,
+        type:    "topup_game_pending",
+        title:   "Top Up Sedang Diproses ⏳",
+        message: `${product.name} sedang diproses Digiflazz. Cek status dalam beberapa menit.`,
       });
     }
 

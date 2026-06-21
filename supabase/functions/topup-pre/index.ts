@@ -6,7 +6,9 @@ const DIGI_API_KEY  = Deno.env.get("DIGIFLAZZ_API_KEY")!;
 const DIGI_API_URL  = "https://api.digiflazz.com/v1/transaction";
 const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_KEY  = Deno.env.get("SB_SERVICE_ROLE_KEY")!;
-const IS_DEV        = DIGI_API_KEY.startsWith("dev-");
+
+// Lebih eksplisit — set env variable DIGIFLAZZ_ENV=development atau production
+const IS_DEV = Deno.env.get("DIGIFLAZZ_ENV") === "development";
 
 const cors = {
   "Access-Control-Allow-Origin":  "*",
@@ -32,42 +34,23 @@ serve(async (req) => {
     const { sku, target, serverId } = await req.json();
     if (!sku || !target) throw new Error("SKU dan target wajib diisi");
 
-    // Cek saldo & produk
     const [{ data: profile }, { data: product }] = await Promise.all([
       supabase.from("profiles").select("balance").eq("id", user.id).single(),
       supabase.from("topup_products").select("*").eq("sku", sku).eq("is_active", true).single(),
     ]);
 
-    if (!product)  throw new Error("Produk tidak ditemukan");
-    if ((profile?.balance || 0) < product.price) {
+    if (!product) throw new Error("Produk tidak ditemukan");
+    const balanceBefore = profile?.balance || 0;
+    if (balanceBefore < product.price) {
       throw new Error(`Saldo tidak cukup. Butuh Rp ${product.price.toLocaleString("id-ID")}`);
     }
 
     const refId      = `OKG-${Date.now()}-${user.id.slice(0,6)}`;
     const sign       = await md5(DIGI_USERNAME + DIGI_API_KEY + refId);
     const customerNo = serverId ? `${target}${serverId}` : target;
-    const balanceBefore = profile?.balance || 0;
 
-    // Simpan transaksi & potong saldo
-    await Promise.all([
-      supabase.from("topup_game_transactions").insert({
-        id: refId, user_id: user.id, sku,
-        product_name: product.name, game_id: product.game_id,
-        target, server_id: serverId || null,
-        price: product.price, status: "pending",
-      }),
-      supabase.from("profiles").update({ balance: balanceBefore - product.price }).eq("id", user.id),
-      supabase.from("wallet_logs").insert({
-        user_id: user.id, action: "spend",
-        amount: product.price,
-        balance_before: balanceBefore,
-        balance_after: balanceBefore - product.price,
-        note: `Top Up ${product.name} → ${customerNo}`,
-      }),
-    ]);
-
-    // Kirim ke DigiFlazz
-    const res  = await fetch(DIGI_API_URL, {
+    // ✅ Kirim ke Digiflazz DULU sebelum potong saldo
+    const res = await fetch(DIGI_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -79,31 +62,44 @@ serve(async (req) => {
         testing: IS_DEV,
       }),
     });
-    const d = (await res.json()).data;
 
-    const status = d?.status === "Sukses" ? "success"
-      : d?.status === "Gagal" ? "failed" : "pending";
+    // Log raw response untuk debug
+    const rawBody = await res.text();
+    console.log("Digiflazz raw response:", rawBody);
+    const d = JSON.parse(rawBody).data;
 
-    await supabase.from("topup_game_transactions")
-      .update({ status, digiflazz_ref: d?.sn || null, message: d?.message || null })
-      .eq("id", refId);
+    if (!d) throw new Error("Response Digiflazz tidak valid");
 
-    // Jika gagal, refund saldo
+    const status = d.status === "Sukses" ? "success"
+      : d.status === "Gagal" ? "failed" : "pending";
+
+    // ✅ Kalau langsung gagal, jangan potong saldo sama sekali
     if (status === "failed") {
-      await Promise.all([
-        supabase.from("profiles").update({ balance: balanceBefore }).eq("id", user.id),
-        supabase.from("wallet_logs").insert({
-          user_id: user.id, action: "refund",
-          amount: product.price,
-          balance_before: balanceBefore - product.price,
-          balance_after: balanceBefore,
-          note: `Refund Top Up ${product.name}`,
-        }),
-      ]);
-      throw new Error(d?.message || "Top up gagal");
+      throw new Error(d.message || "Top up gagal dari provider");
     }
 
-    // Notif
+    // ✅ Baru potong saldo kalau sukses atau pending
+    await Promise.all([
+      supabase.from("topup_game_transactions").insert({
+        id: refId, user_id: user.id, sku,
+        product_name: product.name, game_id: product.game_id,
+        target, server_id: serverId || null,
+        price: product.price, status,
+        digiflazz_ref: d.sn || null,
+        message: d.message || null,
+      }),
+      supabase.from("profiles")
+        .update({ balance: balanceBefore - product.price })
+        .eq("id", user.id),
+      supabase.from("wallet_logs").insert({
+        user_id: user.id, action: "spend",
+        amount: product.price,
+        balance_before: balanceBefore,
+        balance_after: balanceBefore - product.price,
+        note: `Top Up ${product.name} → ${customerNo}`,
+      }),
+    ]);
+
     await supabase.from("notifications").insert({
       user_id: user.id,
       type:    status === "success" ? "topup_game_success" : "topup_game_pending",
@@ -114,11 +110,12 @@ serve(async (req) => {
     });
 
     return new Response(
-      JSON.stringify({ success: true, status, ref_id: refId }),
+      JSON.stringify({ success: true, status, ref_id: refId, message: d.message }),
       { headers: { ...cors, "Content-Type": "application/json" } }
     );
 
   } catch (err: any) {
+    console.error("Edge function error:", err.message);
     return new Response(
       JSON.stringify({ error: err.message }),
       { status: 400, headers: { ...cors, "Content-Type": "application/json" } }

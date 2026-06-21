@@ -1,158 +1,124 @@
-// supabase/functions/topup-post/index.ts
-//
-// Tanggung jawab:
-//   Menerima response Digiflazz yang sudah didapat browser,
-//   lalu update status transaksi + refund jika gagal.
-//
-// Browser memanggil ini setelah dapat response dari Digiflazz.
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_KEY = Deno.env.get("SB_SERVICE_ROLE_KEY")!;
+const DIGI_USERNAME = Deno.env.get("DIGIFLAZZ_USERNAME")!;
+const DIGI_API_KEY  = Deno.env.get("DIGIFLAZZ_API_KEY")!;
+const DIGI_API_URL  = "https://api.digiflazz.com/v1/transaction";
+const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_KEY  = Deno.env.get("SB_SERVICE_ROLE_KEY")!;
+
+// Lebih eksplisit — set env variable DIGIFLAZZ_ENV=development atau production
+const IS_DEV = Deno.env.get("DIGIFLAZZ_ENV") === "development";
 
 const cors = {
   "Access-Control-Allow-Origin":  "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Content-Type": "application/json",
 };
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: cors });
-  }
+async function md5(text: string): Promise<string> {
+  const buf = await crypto.subtle.digest("MD5", new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+}
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    // ── Auth ──────────────────────────────────────────────────
     const auth = req.headers.get("Authorization");
-    if (!auth) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
-    }
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(
-      auth.replace("Bearer ", "")
-    );
-    if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: cors });
-    }
+    if (!auth) throw new Error("Unauthorized");
 
-    // ── Input: response Digiflazz dari browser ────────────────
-    const { ref_id, digiflazz_response } = await req.json();
-    if (!ref_id) {
-      return new Response(
-        JSON.stringify({ error: "ref_id wajib diisi" }),
-        { status: 400, headers: cors }
-      );
-    }
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { data: { user }, error } = await supabase.auth.getUser(auth.replace("Bearer ", ""));
+    if (error || !user) throw new Error("Unauthorized");
 
-    // ── Ambil transaksi ───────────────────────────────────────
-    const { data: txn, error: txErr } = await supabase
-      .from("topup_game_transactions")
-      .select("*")
-      .eq("id", ref_id)
-      .eq("user_id", user.id) // pastikan milik user ini
-      .single();
+    const { sku, target, serverId } = await req.json();
+    if (!sku || !target) throw new Error("SKU dan target wajib diisi");
 
-    if (txErr || !txn) {
-      return new Response(
-        JSON.stringify({ error: "Transaksi tidak ditemukan" }),
-        { status: 404, headers: cors }
-      );
+    const [{ data: profile }, { data: product }] = await Promise.all([
+      supabase.from("profiles").select("balance").eq("id", user.id).single(),
+      supabase.from("topup_products").select("*").eq("sku", sku).eq("is_active", true).single(),
+    ]);
+
+    if (!product) throw new Error("Produk tidak ditemukan");
+    const balanceBefore = profile?.balance || 0;
+    if (balanceBefore < product.price) {
+      throw new Error(`Saldo tidak cukup. Butuh Rp ${product.price.toLocaleString("id-ID")}`);
     }
 
-    // Guard: jangan proses ulang transaksi yang sudah final
-    if (txn.status === "success" || txn.status === "failed") {
-      return new Response(
-        JSON.stringify({ success: txn.status === "success", status: txn.status }),
-        { headers: cors }
-      );
+    const refId      = `OKG-${Date.now()}-${user.id.slice(0,6)}`;
+    const sign       = await md5(DIGI_USERNAME + DIGI_API_KEY + refId);
+    const customerNo = serverId ? `${target}${serverId}` : target;
+
+    // ✅ Kirim ke Digiflazz DULU sebelum potong saldo
+    const res = await fetch(DIGI_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: DIGI_USERNAME,
+        buyer_sku_code: sku,
+        customer_no: customerNo,
+        ref_id: refId,
+        sign,
+        testing: IS_DEV,
+      }),
+    });
+
+    // Log raw response untuk debug
+    const rawBody = await res.text();
+    console.log("Digiflazz raw response:", rawBody);
+    const d = JSON.parse(rawBody).data;
+
+    if (!d) throw new Error("Response Digiflazz tidak valid");
+
+    const status = d.status === "Sukses" ? "success"
+      : d.status === "Gagal" ? "failed" : "pending";
+
+    // ✅ Kalau langsung gagal, jangan potong saldo sama sekali
+    if (status === "failed") {
+      throw new Error(d.message || "Top up gagal dari provider");
     }
 
-    // ── Tentukan status dari response Digiflazz ───────────────
-    const digiData   = digiflazz_response?.data ?? null;
-    const digiStatus = digiData?.status ?? null;
+    // ✅ Baru potong saldo kalau sukses atau pending
+    await Promise.all([
+      supabase.from("topup_game_transactions").insert({
+        id: refId, user_id: user.id, sku,
+        product_name: product.name, game_id: product.game_id,
+        target, server_id: serverId || null,
+        price: product.price, status,
+        digiflazz_ref: d.sn || null,
+        message: d.message || null,
+      }),
+      supabase.from("profiles")
+        .update({ balance: balanceBefore - product.price })
+        .eq("id", user.id),
+      supabase.from("wallet_logs").insert({
+        user_id: user.id, action: "spend",
+        amount: product.price,
+        balance_before: balanceBefore,
+        balance_after: balanceBefore - product.price,
+        note: `Top Up ${product.name} → ${customerNo}`,
+      }),
+    ]);
 
-    // Kalau browser tidak bisa reach Digiflazz (network error),
-    // biarkan status tetap "pending" — webhook akan update nanti.
-    const finalStatus =
-      digiStatus === "Sukses" ? "success" :
-      digiStatus === "Gagal"  ? "failed"  :
-      "pending";
-
-    // ── Update status transaksi ───────────────────────────────
-    await supabase
-      .from("topup_game_transactions")
-      .update({
-        status:        finalStatus,
-        digiflazz_ref: digiData?.sn      ?? null,
-        message:       digiData?.message ?? null,
-      })
-      .eq("id", ref_id);
-
-    // ── Refund jika gagal ─────────────────────────────────────
-    if (finalStatus === "failed") {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single();
-
-      const currentBalance = profile?.balance ?? 0;
-
-      await Promise.all([
-        supabase
-          .from("profiles")
-          .update({ balance: currentBalance + txn.price })
-          .eq("id", user.id),
-
-        supabase.from("wallet_logs").insert({
-          user_id:        user.id,
-          action:         "refund",
-          amount:         txn.price,
-          balance_before: currentBalance,
-          balance_after:  currentBalance + txn.price,
-          note:           `Refund Top Up ${txn.product_name} (gagal)`,
-        }),
-
-        supabase.from("notifications").insert({
-          user_id: user.id,
-          type:    "topup_game_failed",
-          title:   "Top Up Gagal ❌",
-          message: `${txn.product_name} gagal diproses. Saldo Rp ${txn.price.toLocaleString("id-ID")} dikembalikan.`,
-        }),
-      ]);
-    }
-
-    // ── Notif sukses ──────────────────────────────────────────
-    if (finalStatus === "success") {
-      await supabase.from("notifications").insert({
-        user_id: user.id,
-        type:    "topup_game_success",
-        title:   "Top Up Berhasil! ✅",
-        message: `${txn.product_name} berhasil masuk ke akun ${txn.target}`,
-      });
-    }
+    await supabase.from("notifications").insert({
+      user_id: user.id,
+      type:    status === "success" ? "topup_game_success" : "topup_game_pending",
+      title:   status === "success" ? "Top Up Berhasil! ✅" : "Top Up Diproses ⏳",
+      message: status === "success"
+        ? `${product.name} berhasil masuk ke ${customerNo}`
+        : `${product.name} sedang diproses, tunggu beberapa menit.`,
+    });
 
     return new Response(
-      JSON.stringify({
-        success: finalStatus !== "failed",
-        status:  finalStatus,
-        ref_id,
-        message: digiData?.message ?? (
-          finalStatus === "pending"
-            ? "Transaksi sedang diproses, cek status beberapa saat lagi."
-            : null
-        ),
-      }),
-      { headers: cors }
+      JSON.stringify({ success: true, status, ref_id: refId, message: d.message }),
+      { headers: { ...cors, "Content-Type": "application/json" } }
     );
+
   } catch (err: any) {
-    console.error("[topup-post] Error:", err.message);
+    console.error("Edge function error:", err.message);
     return new Response(
       JSON.stringify({ error: err.message }),
-      { status: 400, headers: cors }
+      { status: 400, headers: { ...cors, "Content-Type": "application/json" } }
     );
   }
 });

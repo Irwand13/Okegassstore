@@ -4,7 +4,7 @@ import {
   Wallet, ArrowUpRight, ArrowDownLeft, ArrowLeftRight,
   Plus, Minus, Clock, CheckCircle, XCircle, Shield,
   TrendingUp, Zap, ChevronRight, Copy, RefreshCw,
-  Building2, CreditCard, Smartphone, AlertCircle, X
+  Building2, CreditCard, Smartphone, AlertCircle, X, Lock
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../../lib/supabase";
@@ -25,6 +25,11 @@ interface WalletLog {
 }
 
 type ModalType = "topup" | "withdraw" | null;
+
+// ─── KONTROL FITUR ────────────────────────────────────────────────
+// FIX: matikan dulu Top Up sampai Midtrans benar-benar live (production keys
+// + webhook teruji). Set ke true kalau sudah siap menerima uang real.
+const TOPUP_ENABLED = false;
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 const formatRp = (n: number) =>
@@ -75,99 +80,56 @@ const STYLES = `
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
 
 .wl-root { min-height:100vh; background:#0d0d0f; font-family:'Barlow',sans-serif; }
-
-/* Hero */
 .wl-hero { position:relative; padding:40px 0 0; overflow:hidden; }
 .wl-hero-bg { position:absolute;inset:0; background:linear-gradient(135deg,rgba(220,38,38,0.1) 0%,rgba(192,132,252,0.06) 60%,transparent 100%); }
 .wl-hero-grid { position:absolute;inset:0; background-image:linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px); background-size:40px 40px; }
-
-/* Balance card */
-.wl-balance-card {
-  position:relative;
-  background:linear-gradient(135deg,rgba(220,38,38,0.15) 0%,rgba(234,88,12,0.08) 50%,rgba(192,132,252,0.06) 100%);
-  border:1px solid rgba(220,38,38,0.25);
-  border-radius:24px;
-  padding:32px 36px;
-  overflow:hidden;
-  margin-bottom:20px;
-}
+.wl-balance-card { position:relative; background:linear-gradient(135deg,rgba(220,38,38,0.15) 0%,rgba(234,88,12,0.08) 50%,rgba(192,132,252,0.06) 100%); border:1px solid rgba(220,38,38,0.25); border-radius:24px; padding:32px 36px; overflow:hidden; margin-bottom:20px; }
 .wl-balance-card::before { content:''; position:absolute; top:0;left:0;right:0;height:2px; background:linear-gradient(90deg,#DC2626,#EA580C,#C084FC); }
 .wl-balance-glow { position:absolute; top:-40px;right:-40px; width:200px;height:200px; border-radius:50%; background:rgba(220,38,38,0.08); filter:blur(60px); pointer-events:none; }
-
-/* Stat cards */
 .wl-stat { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:16px; padding:20px; flex:1; }
-
-/* Action buttons */
-.wl-action-btn {
-  display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px;
-  padding:16px 12px; border-radius:14px; cursor:pointer; transition:all 0.22s ease;
-  border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.02); flex:1;
-}
+.wl-action-btn { display:flex; align-items:center; justify-content:center; flex-direction:column; gap:6px; padding:16px 12px; border-radius:14px; cursor:pointer; transition:all 0.22s ease; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.02); flex:1; }
 .wl-action-btn:hover { transform:translateY(-3px); }
-
-/* Main card */
 .wl-card { background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.07); border-radius:18px; overflow:hidden; }
 .wl-card-header { padding:20px 24px; border-bottom:1px solid rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:space-between; }
-
-/* TX item */
 .wl-tx-item { display:flex; align-items:center; gap:14px; padding:14px 24px; border-bottom:1px solid rgba(255,255,255,0.04); transition:background 0.15s; cursor:pointer; }
 .wl-tx-item:last-child { border-bottom:none; }
 .wl-tx-item:hover { background:rgba(255,255,255,0.02); }
 .wl-tx-icon { width:40px;height:40px; border-radius:12px; display:flex;align-items:center;justify-content:center; flex-shrink:0; }
-
-/* Modal */
 .wl-modal-overlay { position:fixed;inset:0;z-index:60; display:flex;align-items:center;justify-content:center;padding:16px; }
 .wl-modal-bg { position:absolute;inset:0; background:rgba(0,0,0,0.8); backdrop-filter:blur(10px); }
 .wl-modal { position:relative;width:100%;max-width:480px;max-height:90vh;overflow-y:auto; background:#121216; border:1px solid rgba(255,255,255,0.08); border-radius:24px; }
 .wl-modal-top-line { height:2px; background:linear-gradient(90deg,#DC2626,#EA580C); border-radius:24px 24px 0 0; }
-
-/* Amount chips */
 .wl-amount-chip { padding:10px 0; border-radius:10px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.02); font-family:'Rajdhani',sans-serif; font-size:14px; font-weight:700; color:rgba(255,255,255,0.6); cursor:pointer; transition:all 0.18s; text-align:center; }
 .wl-amount-chip:hover { border-color:rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); }
 .wl-amount-chip.active { border-color:rgba(220,38,38,0.6); background:rgba(220,38,38,0.08); color:#fff; }
-
-/* Pay method chip */
 .wl-pay-chip { display:flex;align-items:center;gap:8px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.07); background:rgba(255,255,255,0.02); cursor:pointer; transition:all 0.18s; }
 .wl-pay-chip:hover { border-color:rgba(255,255,255,0.14); background:rgba(255,255,255,0.04); }
 .wl-pay-chip.active { border-color:rgba(220,38,38,0.5); background:rgba(220,38,38,0.07); }
-
-/* Input */
 .wl-input { width:100%; padding:12px 14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; font-family:'Barlow',sans-serif; font-size:14px; color:#fff; outline:none; transition:all 0.2s; box-sizing:border-box; }
 .wl-input::placeholder { color:rgba(255,255,255,0.2); }
 .wl-input:focus { border-color:rgba(220,38,38,0.5); background:rgba(220,38,38,0.04); box-shadow:0 0 0 3px rgba(220,38,38,0.08); }
 .wl-select { width:100%; padding:12px 14px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:10px; font-family:'Barlow',sans-serif; font-size:14px; color:#fff; outline:none; cursor:pointer; appearance:none; }
 .wl-select option { background:#1a1a20; }
-
-/* CTA */
 .wl-cta { width:100%; padding:14px; border:none; border-radius:12px; background:linear-gradient(135deg,#DC2626,#EA580C); color:#fff; font-family:'Rajdhani',sans-serif; font-size:16px; font-weight:700; letter-spacing:0.04em; cursor:pointer; display:flex;align-items:center;justify-content:center;gap:8px; transition:all 0.25s; box-shadow:0 6px 20px rgba(220,38,38,0.3); }
 .wl-cta:hover:not(:disabled) { box-shadow:0 10px 32px rgba(220,38,38,0.5); transform:translateY(-1px); }
 .wl-cta:disabled { opacity:0.35; cursor:not-allowed; box-shadow:none; transform:none; }
-.wl-cta-outline { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.6); box-shadow:none; }
-.wl-cta-outline:hover:not(:disabled) { background:rgba(255,255,255,0.07); color:#fff; box-shadow:none; transform:none; }
-
-/* Filter tabs */
 .wl-filter-tab { padding:6px 16px; border-radius:20px; border:1px solid rgba(255,255,255,0.07); background:transparent; font-family:'Barlow',sans-serif; font-size:12px; font-weight:700; color:rgba(255,255,255,0.35); cursor:pointer; transition:all 0.18s; letter-spacing:0.04em; text-transform:uppercase; }
 .wl-filter-tab:hover { color:rgba(255,255,255,0.6); border-color:rgba(255,255,255,0.12); }
 .wl-filter-tab.active { background:rgba(220,38,38,0.1); border-color:rgba(220,38,38,0.4); color:#DC2626; }
-
-/* Empty state */
 .wl-empty { text-align:center; padding:48px 24px; }
-
-/* Label */
 .wl-label { font-family:'Barlow',sans-serif; font-size:11px; font-weight:700; color:rgba(255,255,255,0.3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px; display:block; }
-
+.wl-soon-banner { display:flex; flex-direction:column; align-items:center; text-align:center; padding:40px 24px; gap:14px; }
+.wl-soon-icon { width:64px; height:64px; border-radius:50%; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); display:flex; align-items:center; justify-content:center; }
 @keyframes wlFadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
 .wl-animate { animation:wlFadeUp 0.45s ease forwards; }
 @keyframes spin { to{transform:rotate(360deg)} }
 .wl-spin { animation:spin 0.7s linear infinite; border-radius:50%; }
-
 .wl-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
 @media(max-width:900px){ .wl-grid{grid-template-columns:1fr} }
 .wl-amounts-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
 .wl-pay-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
 `;
 
-// ─── COMPONENT ────────────────────────────────────────────────────
 export default function WalletPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -179,13 +141,11 @@ export default function WalletPage() {
   const [modal, setModal] = useState<ModalType>(null);
   const [copied, setCopied] = useState(false);
 
-  // Top Up form state
   const [topupAmount, setTopupAmount] = useState<number | null>(null);
   const [topupCustom, setTopupCustom] = useState("");
   const [topupMethod, setTopupMethod] = useState<string | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
 
-  // Withdraw form state
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawBank, setWithdrawBank] = useState("");
   const [withdrawAccNum, setWithdrawAccNum] = useState("");
@@ -195,7 +155,6 @@ export default function WalletPage() {
   const finalTopupAmount = topupAmount ?? parseInt(topupCustom.replace(/\D/g, "") || "0");
   const withdrawAmountNum = parseInt(withdrawAmount.replace(/\D/g, "") || "0");
 
-  // Stats computed
   const totalIn  = logs.filter(l => ["topup","refund","bonus"].includes(l.action)).reduce((a,b) => a + b.amount, 0);
   const totalOut = logs.filter(l => ["spend","withdrawal"].includes(l.action)).reduce((a,b) => a + b.amount, 0);
 
@@ -208,7 +167,6 @@ export default function WalletPage() {
     setLoadingLogs(true);
     if (!user) return;
 
-    // Fetch balance from profile
     const { data: prof } = await supabase
       .from("profiles")
       .select("balance")
@@ -216,7 +174,6 @@ export default function WalletPage() {
       .single();
     if (prof) setBalance(prof.balance);
 
-    // Fetch wallet logs
     const { data } = await supabase
       .from("wallet_logs")
       .select("*")
@@ -235,42 +192,41 @@ export default function WalletPage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // FIX: handleTopUp tetap utuh (siap pakai), tinggal nyalakan TOPUP_ENABLED
+  // dan pastikan secrets Midtrans production sudah benar saat mau go-live.
   const handleTopUp = async () => {
-  if (!user || finalTopupAmount < 10000 || !topupMethod) return;
-  setTopupLoading(true);
+    if (!TOPUP_ENABLED) return;
+    if (!user || finalTopupAmount < 10000 || !topupMethod) return;
+    setTopupLoading(true);
 
-  try {
-    // Ambil session token dulu
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error("Sesi tidak ditemukan, silakan login ulang.");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sesi tidak ditemukan, silakan login ulang.");
 
-    // Panggil Edge Function dengan token eksplisit
-    const { data, error } = await supabase.functions.invoke("midtrans-create", {
-      body: { amount: finalTopupAmount },
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-      },
-    });
+      const { data, error } = await supabase.functions.invoke("midtrans-create", {
+        body: { amount: finalTopupAmount },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
 
-    if (error || data?.error) {
-      throw new Error(data?.error || error?.message || "Gagal membuat transaksi");
-    }
+      if (error || data?.error) {
+        throw new Error(data?.error || error?.message || "Gagal membuat transaksi");
+      }
 
-    const { token } = data;
+      const { token } = data;
 
-    if (!(window as any).snap) {
-      throw new Error("Midtrans Snap belum dimuat. Coba refresh halaman.");
-    }
+      if (!(window as any).snap) {
+        throw new Error("Midtrans Snap belum dimuat. Coba refresh halaman.");
+      }
 
-    setTopupLoading(false);
-    setModal(null);
+      setTopupLoading(false);
+      setModal(null);
 
-    (window as any).snap.pay(token, {
-      onSuccess: () => { fetchData(); },
-      onPending: () => { alert("Pending. Selesaikan pembayaran."); fetchData(); },
-      onError:   (err: any) => { console.error(err); alert("Pembayaran gagal."); },
-      onClose:   () => { console.log("Popup ditutup"); },
-    });
+      (window as any).snap.pay(token, {
+        onSuccess: () => { fetchData(); },
+        onPending: () => { alert("Pending. Selesaikan pembayaran."); fetchData(); },
+        onError:   (err: any) => { console.error(err); alert("Pembayaran gagal."); },
+        onClose:   () => { console.log("Popup ditutup"); },
+      });
 
     } catch (err: any) {
       alert(err.message || "Terjadi kesalahan");
@@ -283,12 +239,6 @@ export default function WalletPage() {
     if (withdrawAmountNum > balance) return;
     setWithdrawLoading(true);
 
-    // TODO: Integrasi Midtrans Disbursement API
-    // 1. Call Edge Function midtrans-disburse
-    // 2. Midtrans transfer ke rekening tujuan
-    // 3. Webhook konfirmasi → update balance
-    //
-    // Prototype: simulasi pending
     await new Promise(r => setTimeout(r, 1500));
 
     await supabase.from("wallet_logs").insert({
@@ -322,12 +272,10 @@ export default function WalletPage() {
     <div className="wl-root">
       <style>{STYLES}</style>
 
-      {/* Hero */}
       <div className="wl-hero">
         <div className="wl-hero-bg" /><div className="wl-hero-grid" />
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 32px", position: "relative" }}>
 
-          {/* Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.3)", borderRadius: 6, padding: "4px 12px" }}>
               <Wallet size={11} color="#DC2626" />
@@ -336,7 +284,6 @@ export default function WalletPage() {
           </div>
 
           <div className="wl-grid">
-            {/* Balance card */}
             <div className="wl-balance-card wl-animate">
               <div className="wl-balance-glow" />
 
@@ -352,7 +299,6 @@ export default function WalletPage() {
                 </div>
               </div>
 
-              {/* User ID */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 24, padding: "10px 14px", background: "rgba(0,0,0,0.2)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)" }}>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", fontFamily: "'Barlow',sans-serif" }}>ID:</span>
                 <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", fontFamily: "monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{user.id}</span>
@@ -361,30 +307,45 @@ export default function WalletPage() {
                 </button>
               </div>
 
-              {/* Action buttons */}
               <div style={{ display: "flex", gap: 10 }}>
                 {[
-                  { label: "Top Up", icon: <Plus size={18} />, color: "#10B981", bg: "rgba(16,185,129,0.12)", border: "rgba(16,185,129,0.3)", onClick: () => setModal("topup") },
-                  { label: "Tarik", icon: <Minus size={18} />, color: "#C084FC", bg: "rgba(192,132,252,0.12)", border: "rgba(192,132,252,0.3)", onClick: () => setModal("withdraw") },
+                  { id: "topup",    label: "Top Up", icon: <Plus size={18} />,  color: "#10B981", bg: "rgba(16,185,129,0.12)",  border: "rgba(16,185,129,0.3)",  onClick: () => setModal("topup"),    disabled: !TOPUP_ENABLED },
+                  { id: "withdraw", label: "Tarik",  icon: <Minus size={18} />, color: "#C084FC", bg: "rgba(192,132,252,0.12)", border: "rgba(192,132,252,0.3)", onClick: () => setModal("withdraw"), disabled: false },
                 ].map((a) => (
                   <button
-                    key={a.label}
+                    key={a.id}
                     className="wl-action-btn"
-                    style={{ background: a.bg, borderColor: a.border }}
-                    onClick={a.onClick}
-                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${a.bg}`}
+                    style={{
+                      background: a.bg,
+                      borderColor: a.border,
+                      opacity: a.disabled ? 0.4 : 1,
+                      cursor: a.disabled ? "not-allowed" : "pointer",
+                    }}
+                    disabled={a.disabled}
+                    onClick={a.disabled ? undefined : a.onClick}
+                    onMouseEnter={e => { if (!a.disabled) (e.currentTarget as HTMLButtonElement).style.boxShadow = `0 8px 24px ${a.bg}`; }}
                     onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.boxShadow = "none"}
                   >
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: a.bg, border: `1px solid ${a.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color }}>
-                      {a.icon}
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: a.bg, border: `1px solid ${a.border}`, display: "flex", alignItems: "center", justifyContent: "center", color: a.color, position: "relative" }}>
+                      {a.disabled ? <Lock size={14} color={a.color} /> : a.icon}
                     </div>
-                    <span style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, fontWeight: 700, color: a.color, letterSpacing: "0.04em" }}>{a.label}</span>
+                    <span style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, fontWeight: 700, color: a.color, letterSpacing: "0.04em" }}>
+                      {a.label}{a.disabled ? " (Segera)" : ""}
+                    </span>
                   </button>
                 ))}
               </div>
+
+              {!TOPUP_ENABLED && (
+                <div style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "flex-start", padding: "10px 12px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10 }}>
+                  <AlertCircle size={13} color="#F59E0B" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontFamily: "'Barlow',sans-serif", fontSize: 11, color: "rgba(245,158,11,0.85)", lineHeight: 1.5 }}>
+                    Fitur Top Up sedang dalam tahap persiapan pembayaran resmi. Akan segera aktif.
+                  </span>
+                </div>
+              )}
             </div>
 
-            {/* Stats */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {[
                 { label: "Total Masuk", val: formatRp(totalIn),  icon: <ArrowDownLeft size={16} />, color: "#10B981", bg: "rgba(16,185,129,0.1)", border: "rgba(16,185,129,0.2)" },
@@ -402,7 +363,6 @@ export default function WalletPage() {
                 </div>
               ))}
 
-              {/* Security badge */}
               <div style={{ padding: "14px 16px", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.15)", borderRadius: 14, display: "flex", alignItems: "center", gap: 10 }}>
                 <Shield size={16} color="#60A5FA" style={{ flexShrink: 0 }} />
                 <div>
@@ -415,7 +375,6 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* Transaction history */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 60px" }}>
         <div className="wl-card wl-animate">
           <div className="wl-card-header">
@@ -428,7 +387,6 @@ export default function WalletPage() {
             </button>
           </div>
 
-          {/* Filter tabs */}
           <div style={{ padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             {(["all", "topup", "spend", "refund", "bonus", "withdrawal"] as const).map((f) => (
               <button key={f} className={`wl-filter-tab ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
@@ -437,7 +395,6 @@ export default function WalletPage() {
             ))}
           </div>
 
-          {/* Logs */}
           {loadingLogs ? (
             <div style={{ padding: "48px 0", display: "flex", justifyContent: "center" }}>
               <div className="wl-spin" style={{ width: 28, height: 28, border: "3px solid rgba(220,38,38,0.2)", borderTopColor: "#DC2626" }} />
@@ -447,13 +404,8 @@ export default function WalletPage() {
               <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
               <h3 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.4)", margin: "0 0 8px" }}>Belum ada transaksi</h3>
               <p style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Barlow',sans-serif", fontSize: 13 }}>
-                {filter === "all" ? "Top up dulu untuk mulai transaksi" : `Belum ada transaksi ${txConfig[filter as TxType]?.label}`}
+                {filter === "all" ? "Riwayat transaksi kamu akan muncul di sini" : `Belum ada transaksi ${txConfig[filter as TxType]?.label}`}
               </p>
-              {filter === "all" && (
-                <button className="wl-cta" style={{ marginTop: 20, width: "auto", padding: "12px 28px" }} onClick={() => setModal("topup")}>
-                  <Plus size={15} /> Top Up Sekarang
-                </button>
-              )}
             </div>
           ) : (
             filteredLogs.map((log) => {
@@ -485,82 +437,97 @@ export default function WalletPage() {
         </div>
       </div>
 
-      {/* ─── TOP UP MODAL ─────────────────────────────────────── */}
+      {/* TOP UP MODAL — pengaman ganda kalau modal sempat kebuka walau tombol disabled */}
       {modal === "topup" && (
         <div className="wl-modal-overlay">
           <div className="wl-modal-bg" onClick={() => setModal(null)} />
           <div className="wl-modal">
             <div className="wl-modal-top-line" />
-            <div style={{ padding: "24px 28px 32px" }}>
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-                <div>
-                  <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Top Up Wallet</div>
-                  <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Saldo saat ini: <strong style={{ color: "#fff" }}>{formatRp(balance)}</strong></div>
+
+            {!TOPUP_ENABLED ? (
+              <div className="wl-soon-banner">
+                <div className="wl-soon-icon">
+                  <Lock size={28} color="#F59E0B" />
                 </div>
-                <button onClick={() => setModal(null)} style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}>
-                  <X size={14} />
+                <div>
+                  <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 6 }}>
+                    Top Up Segera Hadir
+                  </div>
+                  <p style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, color: "rgba(255,255,255,0.4)", lineHeight: 1.6, maxWidth: 320 }}>
+                    Kami sedang menyiapkan sistem pembayaran resmi via Midtrans agar transaksi kamu aman dan terpercaya. Fitur ini akan aktif dalam waktu dekat.
+                  </p>
+                </div>
+                <button onClick={() => setModal(null)} className="wl-cta" style={{ width: "auto", padding: "10px 24px", marginTop: 8 }}>
+                  Mengerti
                 </button>
               </div>
-
-              {/* Amount chips */}
-              <label className="wl-label">Pilih Nominal</label>
-              <div className="wl-amounts-grid" style={{ marginBottom: 12 }}>
-                {TOPUP_AMOUNTS.map((a) => (
-                  <button key={a} className={`wl-amount-chip ${topupAmount === a ? "active" : ""}`} onClick={() => { setTopupAmount(a); setTopupCustom(""); }}>
-                    {formatRp(a)}
+            ) : (
+              <div style={{ padding: "24px 28px 32px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                  <div>
+                    <div style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 22, fontWeight: 700, color: "#fff", margin: "0 0 4px" }}>Top Up Wallet</div>
+                    <div style={{ fontFamily: "'Barlow',sans-serif", fontSize: 13, color: "rgba(255,255,255,0.35)" }}>Saldo saat ini: <strong style={{ color: "#fff" }}>{formatRp(balance)}</strong></div>
+                  </div>
+                  <button onClick={() => setModal(null)} style={{ width: 32, height: 32, borderRadius: 9, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.4)" }}>
+                    <X size={14} />
                   </button>
-                ))}
+                </div>
+
+                <label className="wl-label">Pilih Nominal</label>
+                <div className="wl-amounts-grid" style={{ marginBottom: 12 }}>
+                  {TOPUP_AMOUNTS.map((a) => (
+                    <button key={a} className={`wl-amount-chip ${topupAmount === a ? "active" : ""}`} onClick={() => { setTopupAmount(a); setTopupCustom(""); }}>
+                      {formatRp(a)}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="wl-label" style={{ marginTop: 8 }}>Atau Nominal Lain</label>
+                <input
+                  className="wl-input"
+                  type="text"
+                  value={topupCustom}
+                  onChange={(e) => { setTopupCustom(e.target.value); setTopupAmount(null); }}
+                  placeholder="Min. Rp 10.000"
+                  style={{ marginBottom: 20 }}
+                />
+
+                <label className="wl-label">Metode Pembayaran</label>
+                <div className="wl-pay-grid" style={{ marginBottom: 24 }}>
+                  {PAYMENT_METHODS.map((pm) => (
+                    <button key={pm.id} className={`wl-pay-chip ${topupMethod === pm.id ? "active" : ""}`} onClick={() => setTopupMethod(pm.id)}>
+                      <span style={{ fontSize: 18 }}>{pm.emoji}</span>
+                      <span style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, fontWeight: 600, color: topupMethod === pm.id ? "#fff" : "rgba(255,255,255,0.55)", flex: 1, textAlign: "left" as const }}>{pm.name}</span>
+                      {topupMethod === pm.id && <CheckCircle size={13} color="#DC2626" />}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, marginBottom: 20 }}>
+                  <AlertCircle size={14} color="#60A5FA" style={{ flexShrink: 0, marginTop: 1 }} />
+                  <p style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.6 }}>
+                    Pembayaran diproses aman via <strong style={{ color: "#60A5FA" }}>Midtrans</strong>. Saldo masuk otomatis setelah pembayaran dikonfirmasi.
+                  </p>
+                </div>
+
+                <button
+                  className="wl-cta"
+                  disabled={finalTopupAmount < 10000 || !topupMethod || topupLoading}
+                  onClick={handleTopUp}
+                >
+                  {topupLoading ? (
+                    <><div className="wl-spin" style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff" }} /> Memproses...</>
+                  ) : (
+                    <><Zap size={15} fill="white" /> Bayar {finalTopupAmount >= 10000 ? formatRp(finalTopupAmount) : ""}</>
+                  )}
+                </button>
               </div>
-
-              {/* Custom input */}
-              <label className="wl-label" style={{ marginTop: 8 }}>Atau Nominal Lain</label>
-              <input
-                className="wl-input"
-                type="text"
-                value={topupCustom}
-                onChange={(e) => { setTopupCustom(e.target.value); setTopupAmount(null); }}
-                placeholder="Min. Rp 10.000"
-                style={{ marginBottom: 20 }}
-              />
-
-              {/* Payment method */}
-              <label className="wl-label">Metode Pembayaran</label>
-              <div className="wl-pay-grid" style={{ marginBottom: 24 }}>
-                {PAYMENT_METHODS.map((pm) => (
-                  <button key={pm.id} className={`wl-pay-chip ${topupMethod === pm.id ? "active" : ""}`} onClick={() => setTopupMethod(pm.id)}>
-                    <span style={{ fontSize: 18 }}>{pm.emoji}</span>
-                    <span style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, fontWeight: 600, color: topupMethod === pm.id ? "#fff" : "rgba(255,255,255,0.55)", flex: 1, textAlign: "left" as const }}>{pm.name}</span>
-                    {topupMethod === pm.id && <CheckCircle size={13} color="#DC2626" />}
-                  </button>
-                ))}
-              </div>
-
-              {/* Midtrans info */}
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 10, marginBottom: 20 }}>
-                <AlertCircle size={14} color="#60A5FA" style={{ flexShrink: 0, marginTop: 1 }} />
-                <p style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.6 }}>
-                  Pembayaran diproses aman via <strong style={{ color: "#60A5FA" }}>Midtrans</strong>. Saldo masuk otomatis setelah pembayaran dikonfirmasi.
-                </p>
-              </div>
-
-              <button
-                className="wl-cta"
-                disabled={finalTopupAmount < 10000 || !topupMethod || topupLoading}
-                onClick={handleTopUp}
-              >
-                {topupLoading ? (
-                  <><div className="wl-spin" style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff" }} /> Memproses...</>
-                ) : (
-                  <><Zap size={15} fill="white" /> Bayar {finalTopupAmount >= 10000 ? formatRp(finalTopupAmount) : ""}</>
-                )}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* ─── WITHDRAW MODAL ───────────────────────────────────── */}
+      {/* WITHDRAW MODAL — tetap aktif normal */}
       {modal === "withdraw" && (
         <div className="wl-modal-overlay">
           <div className="wl-modal-bg" onClick={() => setModal(null)} />
@@ -598,7 +565,6 @@ export default function WalletPage() {
               <label className="wl-label">Nama Pemilik Rekening</label>
               <input className="wl-input" type="text" value={withdrawAccName} onChange={(e) => setWithdrawAccName(e.target.value)} placeholder="Sesuai buku tabungan" style={{ marginBottom: 20 }} />
 
-              {/* Info */}
               <div style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", background: "rgba(245,158,11,0.07)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 10, marginBottom: 20 }}>
                 <Clock size={14} color="#F59E0B" style={{ flexShrink: 0, marginTop: 1 }} />
                 <p style={{ fontFamily: "'Barlow',sans-serif", fontSize: 12, color: "rgba(255,255,255,0.4)", margin: 0, lineHeight: 1.6 }}>
