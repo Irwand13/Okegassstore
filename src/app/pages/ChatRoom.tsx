@@ -5,9 +5,9 @@ import { supabase } from "@/lib/supabase";
 import { ArrowLeft, Send, Shield, Loader2, User } from "lucide-react";
 
 export default function ChatRoom() {
-  const { id: chatId } = useParams<{ id: string }>();
+  const { chatId } = useParams<{ chatId: string }>();
   const navigate = useNavigate();
-  const { session, profile } = useAuth();
+  const { session } = useAuth();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const [chat, setChat]       = useState<any>(null);
@@ -20,29 +20,23 @@ export default function ChatRoom() {
   useEffect(() => {
     if (!chatId || !session) return;
 
-    // Ambil detail chat
-    supabase
-      .from("chats")
-      .select(`
-        *,
-        listing:listing_id (title, price),
-        buyer:buyer_id (full_name, username, avatar_url),
-        seller:seller_id (full_name, username, avatar_url)
-      `)
-      .eq("id", chatId)
-      .single()
-      .then(({ data }) => {
-        setChat(data);
-        setLoading(false);
-      });
-
-    // Ambil messages
-    supabase
-      .from("chat_messages")
-      .select("*, sender:sender_id (full_name, username, avatar_url)")
-      .eq("chat_id", chatId)
-      .order("created_at", { ascending: true })
-      .then(({ data }) => setMessages(data ?? []));
+    // Jalankan kedua fetch benar-benar paralel, baru matikan loading setelah keduanya selesai
+   Promise.all([
+     supabase.from("chats").select(`
+       *,
+       listing:listing_id (title, price),
+       buyer:buyer_id (full_name, username, avatar_url),
+       seller:seller_id (full_name, username, avatar_url)
+     `).eq("id", chatId).single(),
+     supabase.from("chat_messages")
+       .select("*, sender:sender_id (full_name, username, avatar_url)")
+       .eq("chat_id", chatId)
+       .order("created_at", { ascending: true }),
+   ]).then(([chatRes, msgRes]) => {
+     setChat(chatRes.data);
+     setMessages(msgRes.data ?? []);
+     setLoading(false);
+   });
 
     // Realtime subscription
     const channel = supabase

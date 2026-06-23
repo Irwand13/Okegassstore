@@ -596,11 +596,14 @@ export default function TopUp() {
                         <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:14, fontWeight:700, color: active ? "#fff" : "rgba(255,255,255,0.75)", marginBottom:2 }}>
                           {product.name}
                         </div>
-                        {product.bonus && (
-                          <div style={{ fontSize:11, color:"#10B981", fontWeight:600, marginBottom:4 }}>
-                            +{product.bonus} Bonus
-                          </div>
-                        )}
+                        {product.bonus && product.bonus > 0
+                          ? (
+                            <div style={{ fontSize:11, color:"#10B981", fontWeight:600, marginBottom:4 }}>
+                              +{product.bonus} Bonus
+                            </div>
+                          )
+                          : null
+                        }
                         <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:16, fontWeight:700, color: active ? "#DC2626" : "rgba(255,255,255,0.5)", marginTop:2 }}>
                           {formatRupiah(product.price)}
                         </div>

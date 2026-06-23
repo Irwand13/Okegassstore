@@ -379,6 +379,7 @@ export default function Navbar() {
     { label: "Jual Beli Akun",  to: "/marketplace" },
     { label: "Layanan Digital", to: "/layanandigital" },
     { label: "Bantuan",         to: "/Bantuan" },
+    {label: "Inbox", to: "/inbox" }
   ];
   const isActive = (to: string) => location.pathname === to;
   const openAuth = () => { setShowAuthModal(true); setMobileOpen(false); };
