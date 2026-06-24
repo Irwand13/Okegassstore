@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   Shield, Star, User, CheckCircle, AlertCircle,
@@ -150,18 +150,33 @@ export default function ListingDetail() {
   const navigate = useNavigate();
   const { user, profile, session, setShowAuthModal } = useAuth();
 
-  const [listing,     setListing]     = useState<any>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [activeImg,   setActiveImg]   = useState(0);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [buying,      setBuying]      = useState(false);
-  const [buyError,    setBuyError]    = useState("");
-  const [buySuccess,  setBuySuccess]  = useState(false);
-  const [successChatId, setSuccessChatId] = useState<string | null>(null);
+  const [listing,        setListing]        = useState<any>(null);
+  const [loading,        setLoading]        = useState(true);
+  const [activeImg,      setActiveImg]      = useState(0);
+  const [showConfirm,    setShowConfirm]    = useState(false);
+  const [buying,         setBuying]         = useState(false);
+  const [buyError,       setBuyError]       = useState("");
+  const [buySuccess,     setBuySuccess]     = useState(false);
+  const [successChatId,  setSuccessChatId]  = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+
+  const fetchListing = useCallback(() => {
+    if (!id) return;
+    getListingById(id).then(({ data, error }) => {
+      if (error || !data) {
+        console.error("Listing not found:", error);
+        navigate("/marketplace");
+        return;
+      }
+      setListing(data);
+      setLoading(false);
+    });
+  }, [id, navigate]);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
+
     getListingById(id).then(({ data, error }) => {
       if (error || !data) {
         console.error("Listing not found:", error);
@@ -172,9 +187,38 @@ export default function ListingDetail() {
       setLoading(false);
       incrementViewCount(id);
     });
-  }, [id]);
 
-  // ── Loading ───────────────────────────────────────────────────
+    const handleFocus = () => fetchListing();
+    window.addEventListener("focus", handleFocus);
+
+    const channel = supabase
+      .channel(`listing-status-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "listings", filter: `id=eq.${id}` },
+        (payload) => {
+          if (payload.new && payload.new.status) {
+            setListing((prev: any) => ({
+              ...prev,
+              status:  payload.new.status,
+              sold_at: payload.new.sold_at,
+            }));
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.error("⚠️ Realtime listing detail error:", err);
+        }
+      });
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      supabase.removeChannel(channel);
+    };
+  }, [id, fetchListing]);
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="ld-root" style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh" }}>
@@ -194,125 +238,140 @@ export default function ListingDetail() {
   const saldo     = profile?.balance ?? 0;
   const hasEnough = saldo >= listing.price;
 
-  // ── Eksekusi beli ─────────────────────────────────────────────
-  const handleBuy = async () => {
-    if (!session?.user) return;
-    setBuying(true);
+  // ── Cek status fresh dari DB sebelum buka modal ───────────────────────────
+  const handleOpenConfirm = async () => {
+    setCheckingStatus(true);
     setBuyError("");
 
     try {
-      // 1. Cek listing masih available
-      const { data: freshListing } = await supabase
+      const { data: check, error: checkError } = await supabase
         .from("listings")
-        .select("status, price, seller_id")
+        .select("status")
         .eq("id", listing.id)
         .single();
 
-      if (!freshListing || freshListing.status !== "active") {
-        setBuyError("Maaf, akun ini sudah tidak tersedia.");
-        setBuying(false);
+      if (checkError) throw checkError;
+
+      if (!check || check.status !== "active") {
+        setListing((prev: any) => ({ ...prev, status: check?.status ?? "sold" }));
+        setCheckingStatus(false);
         return;
       }
 
-      if (freshListing.seller_id === session.user.id) {
-        setBuyError("Kamu tidak bisa membeli listing milik sendiri.");
-        setBuying(false);
-        return;
-      }
-
-      // 2. Cek saldo buyer
-      const { data: buyerProfile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", session.user.id)
-        .single();
-
-      if (!buyerProfile || buyerProfile.balance < freshListing.price) {
-        setBuyError("Saldo tidak cukup. Silakan top up terlebih dahulu.");
-        setBuying(false);
-        return;
-      }
-
-      const price        = freshListing.price;
-      const platformFee  = Math.floor(price * 5 / 100);
-      const sellerAmount = price - platformFee;
-
-      // 3. Kurangi saldo buyer
-      const { error: deductError } = await supabase
-        .from("profiles")
-        .update({ balance: buyerProfile.balance - price })
-        .eq("id", session.user.id);
-
-      if (deductError) throw new Error("Gagal memotong saldo: " + deductError.message);
-
-      // 4. Buat order
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          listing_id:       listing.id,
-          buyer_id:         session.user.id,
-          seller_id:        listing.seller_id,
-          price,
-          platform_fee:     platformFee,
-          seller_amount:    sellerAmount,
-          payment_method:   "wallet",
-          status:           "paid",
-          paid_at:          new Date().toISOString(),
-          auto_complete_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        })
-        .select("id")
-        .single();
-
-      if (orderError) throw new Error("Gagal membuat order: " + orderError.message);
-
-      // 5. Catat wallet log buyer
-      await supabase.from("wallet_logs").insert({
-        user_id:        session.user.id,
-        order_id:       order.id,
-        action:         "spend",
-        amount:         price,
-        balance_before: buyerProfile.balance,
-        balance_after:  buyerProfile.balance - price,
-        note:           `Beli akun: ${listing.title}`,
-      });
-
-      // 6. Update status listing → sold
-      await supabase
-        .from("listings")
-        .update({ status: "sold", sold_at: new Date().toISOString() })
-        .eq("id", listing.id);
-
-      // 7. Buat chat room antara buyer dan seller
-      const { data: chat, error: chatError } = await getOrCreateChat(
-        order.id,
-        listing.id,
-        session.user.id,
-        listing.seller_id
-      );
-
-      if (chatError) {
-        console.error("Gagal membuat chat:", chatError);
-      }
-
-      // 8. Sukses — redirect ke chat
-      setBuying(false);
-      setBuySuccess(true);
-      setShowConfirm(false);
-      setListing((prev: any) => ({ ...prev, status: "sold" }));
-
-      // Redirect ke chat setelah 1.5 detik (biar success screen keliatan sebentar)
-      if (chat?.id) {
-        setSuccessChatId(chat.id);
-        setTimeout(() => navigate(`/chat/${chat.id}`), 1500);
-      }
-
+      setCheckingStatus(false);
+      setShowConfirm(true);
     } catch (err: any) {
-      setBuyError(err.message || "Terjadi kesalahan. Coba lagi.");
-      setBuying(false);
+      console.error("Gagal cek status listing:", err);
+      setCheckingStatus(false);
+      setShowConfirm(true); // tetap buka modal, handleBuy akan cek ulang
     }
   };
 
-  // ── Success screen ────────────────────────────────────────────
+  // ── Eksekusi beli ─────────────────────────────────────────────────────────
+ const handleBuy = async () => {
+  if (!session?.user) return;
+  setBuying(true);
+  setBuyError("");
+
+  try {
+    // ── Panggil atomic Postgres Function ──────────────────────────────
+    // SECURITY DEFINER → bypass RLS → update listing pasti berhasil
+    // Seluruh langkah (potong saldo, buat order, update listing) dalam
+    // satu transaksi — jika salah satu gagal, semua di-rollback.
+    const { data: purchaseResult, error: purchaseError } = await supabase
+      .rpc("purchase_listing", {
+        p_listing_id: listing.id,
+        p_buyer_id:   session.user.id,
+      });
+
+    // ── Debug log (hapus setelah confirmed working) ───────────────────
+    console.log("[handleBuy] purchase_listing result:", purchaseResult);
+    console.log("[handleBuy] purchase_listing error:", purchaseError);
+
+    if (purchaseError) {
+      // Parse pesan error dari Postgres RAISE EXCEPTION
+      const msg = purchaseError.message ?? "";
+      console.error("[handleBuy] RPC error detail:", purchaseError);
+
+      if (msg.includes("LISTING_NOT_FOUND")) {
+        setBuyError("Listing tidak ditemukan.");
+      } else if (msg.includes("LISTING_NOT_ACTIVE")) {
+        // Ambil status dari pesan: LISTING_NOT_ACTIVE:sold
+        const status = msg.split(":")[1] ?? "tidak tersedia";
+        setBuyError(`Maaf, akun ini sudah ${status}.`);
+        setListing((prev: any) => ({ ...prev, status: status }));
+      } else if (msg.includes("CANNOT_BUY_OWN_LISTING")) {
+        setBuyError("Kamu tidak bisa membeli listing milikmu sendiri.");
+      } else if (msg.includes("INSUFFICIENT_BALANCE")) {
+        setBuyError("Saldo tidak cukup. Silakan top up terlebih dahulu.");
+      } else if (msg.includes("BUYER_NOT_FOUND")) {
+        setBuyError("Akun kamu tidak ditemukan. Coba login ulang.");
+      } else {
+        setBuyError("Transaksi gagal: " + msg);
+      }
+
+      setBuying(false);
+      return;
+    }
+
+    if (!purchaseResult?.success) {
+      console.error("[handleBuy] purchaseResult tidak success:", purchaseResult);
+      setBuyError("Terjadi kesalahan tak terduga. Coba lagi.");
+      setBuying(false);
+      return;
+    }
+
+    const orderId = purchaseResult.order_id;
+    console.log("[handleBuy] ✅ Purchase berhasil, order_id:", orderId);
+
+    // ── Update local state listing → sold ────────────────────────────
+    // Realtime channel harusnya handle ini, tapi kita update manual
+    // sebagai fallback supaya UI langsung responsif
+    setListing((prev: any) => ({
+      ...prev,
+      status:  "sold",
+      sold_at: new Date().toISOString(),
+    }));
+
+    // ── Buat chat room (di luar transaksi DB, non-critical) ───────────
+    let chatId: string | null = null;
+    try {
+      const { data: chat, error: chatError } = await getOrCreateChat(
+        orderId,
+        listing.id,
+        session.user.id,
+        listing.seller_id,
+      );
+
+      if (chatError) {
+        // Chat gagal tidak fatal — buyer masih bisa lihat order di profil
+        console.error("[handleBuy] Chat creation failed (non-fatal):", chatError);
+      } else {
+        chatId = chat?.id ?? null;
+        console.log("[handleBuy] ✅ Chat created:", chatId);
+      }
+    } catch (chatErr) {
+      console.error("[handleBuy] Chat exception (non-fatal):", chatErr);
+    }
+
+    // ── Selesai ───────────────────────────────────────────────────────
+    setShowConfirm(false);
+    setBuying(false);
+    setBuySuccess(true);
+
+    if (chatId) {
+      setSuccessChatId(chatId);
+      setTimeout(() => navigate(`/chat/${chatId}`), 1500);
+    }
+
+  } catch (err: any) {
+    console.error("[handleBuy] Unexpected exception:", err);
+    setBuyError(err.message || "Terjadi kesalahan. Coba lagi.");
+    setBuying(false);
+  }
+};
+
+  // ── Success screen ────────────────────────────────────────────────────────
   if (buySuccess) {
     return (
       <div className="ld-root" style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:24 }}>
@@ -360,7 +419,7 @@ export default function ListingDetail() {
     );
   }
 
-  // ── Main ─────────────────────────────────────────────────────
+  // ── Main render ───────────────────────────────────────────────────────────
   return (
     <div className="ld-root">
       <style>{STYLES}</style>
@@ -432,7 +491,7 @@ export default function ListingDetail() {
 
         <div className="ld-grid">
 
-          {/* ── LEFT ─────────────────────────────────────────── */}
+          {/* ── LEFT ──────────────────────────────────────────────────────── */}
           <div>
             {/* Gallery */}
             <div className="ld-gallery">
@@ -532,7 +591,7 @@ export default function ListingDetail() {
             </div>
           </div>
 
-          {/* ── RIGHT: Buy Box ──────────────────────────────── */}
+          {/* ── RIGHT: Buy Box ─────────────────────────────────────────────── */}
           <div>
             <div className="ld-buy-box">
               <div className="ld-buy-box-top" />
@@ -595,15 +654,22 @@ export default function ListingDetail() {
                     </div>
                   </div>
                 ) : (
-                  <button className="ld-buy-btn" onClick={() => { setBuyError(""); setShowConfirm(true); }}>
-                    <Zap size={15} fill="white" /> Beli Sekarang <ChevronRight size={14} />
+                  <button
+                    className="ld-buy-btn"
+                    onClick={handleOpenConfirm}
+                    disabled={checkingStatus}
+                  >
+                    {checkingStatus
+                      ? <><Loader2 size={15} style={{ animation:"spin 0.8s linear infinite" }} /> Mengecek...</>
+                      : <><Zap size={15} fill="white" /> Beli Sekarang <ChevronRight size={14} /></>
+                    }
                   </button>
                 )}
 
                 {/* Trust badges */}
                 <div style={{ marginTop:16, display:"flex", flexDirection:"column", gap:8 }}>
                   {[
-                    { icon:<Shield size={12} color="#10B981" />,      text:"Dana aman dengan escrow" },
+                    { icon:<Shield size={12} color="#10B981" />,       text:"Dana aman dengan escrow" },
                     { icon:<CheckCircle size={12} color="#3B82F6" />,  text:"Auto-complete 3 hari" },
                     { icon:<MessageCircle size={12} color="#A78BFA" />, text:"Chat langsung dengan seller" },
                     { icon:<AlertCircle size={12} color="#F59E0B" />,  text:"Mediasi jika ada sengketa" },

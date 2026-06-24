@@ -19,6 +19,7 @@ const badgeConfig: Record<string, { label: string; color: string; bg: string; bo
 
 const statusConfig: Record<string, { label: string; color: string; dot?: string }> = {
   available: { label: "Tersedia",  color: "#10B981", dot: "#10B981" },
+  active:    { label: "Tersedia",  color: "#10B981", dot: "#10B981" },
   escrow:    { label: "In Escrow", color: "#F59E0B" },
   sold:      { label: "Terjual",   color: "rgba(255,255,255,0.2)" },
 };
@@ -134,6 +135,7 @@ option { background: #1a1a1f; }
   display:flex; flex-direction:column;
 }
 .mp-card:hover { transform:translateY(-6px); border-color:rgba(255,255,255,0.13); }
+.mp-card.sold { opacity: 0.5; cursor: default; pointer-events: none; }
 .mp-card:hover .mp-card-glow { opacity:1; }
 .mp-card-glow {
   position:absolute; bottom:-50px; left:50%; transform:translateX(-50%);
@@ -142,6 +144,15 @@ option { background: #1a1a1f; }
 }
 .mp-card-top-bar { height:2px; width:100%; }
 .mp-card-body { padding:18px 18px 16px; flex:1; display:flex; flex-direction:column; gap:12px; }
+
+/* Badge TERJUAL overlay */
+.mp-sold-banner {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg);
+  background: rgba(220,38,38,0.9); color: #fff; font-family: 'Rajdhani', sans-serif;
+  font-size: 22px; font-weight: 700; padding: 6px 24px; border-radius: 6px;
+  letter-spacing: 0.1em; pointer-events: none; z-index: 10;
+  border: 2px solid rgba(255,255,255,0.3);
+}
 
 .mp-stat-chip {
   background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
@@ -233,11 +244,10 @@ export default function Marketplace() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // State
   const [listings, setListings] = useState<any[]>([]);
   const [categories, setCategories] = useState<GameCategory[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGame, setSelectedGame] = useState("Semua Game");
   const [selectedRank, setSelectedRank] = useState("Semua Rank");
@@ -248,7 +258,7 @@ export default function Marketplace() {
   const [favs, setFavs] = useState<string[]>([]);
   const [activeDetail, setActiveDetail] = useState<string | null>(null);
 
-  // Fetch data dari Supabase
+  // ── Fetch awal: active + sold sekaligus ──────────────────────────
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -256,7 +266,8 @@ export default function Marketplace() {
         const { data: cats } = await getGameCategories();
         if (cats) setCategories(cats);
 
-        const { data: listingsData } = await getListings({ limit: 100, offset: 0 });
+        // include_sold: true → fetch active + sold supaya badge Terjual muncul
+        const { data: listingsData } = await getListings({ limit: 100, offset: 0, include_sold: true });
         if (listingsData) setListings(listingsData);
       } catch (error) {
         console.error("❌ Error fetching marketplace data:", error);
@@ -268,18 +279,24 @@ export default function Marketplace() {
     fetchData();
   }, []);
 
-  // ✅ FIX 3: Realtime — hapus listing dari list saat status berubah jadi sold
+  // ── Realtime: pantau UPDATE status listing ───────────────────────
+  // Ketika listing dibeli user lain, status berubah active → sold
+  // Update di state tanpa hapus dari list, supaya badge "Terjual" tetap tampil
   useEffect(() => {
     const channel = supabase
-      .channel("listings-status")
+      .channel("marketplace-listings-status")
       .on("postgres_changes", {
         event: "UPDATE",
         schema: "public",
         table: "listings",
       }, (payload) => {
-        if (payload.new.status === "sold") {
-          setListings(prev => prev.filter(l => l.id !== payload.new.id));
-        }
+        setListings(prev =>
+          prev.map(l =>
+            l.id === payload.new.id
+              ? { ...l, status: payload.new.status, sold_at: payload.new.sold_at }
+              : l
+          )
+        );
       })
       .subscribe();
 
@@ -291,9 +308,8 @@ export default function Marketplace() {
   const games = ["Semua Game", ...categories.map(c => c.name)];
   const ranks = ["Semua Rank", "Mythic Glory", "Mythic", "Legend", "Epic", "Grandmaster", "Master", "Platinum", "Gold"];
 
-  // ✅ FIX 1: Exclude listing yang sudah sold dari tampilan
+  // Filter — sold tetap tampil (tidak di-exclude), hanya diturunkan ke bawah via sort
   const filtered = listings.filter((listing: Listing) => {
-    if (listing.status === "sold") return false; // ← hide sold listings
     if (selectedGame !== "Semua Game" && listing.game_categories?.name !== selectedGame) return false;
     if (selectedRank !== "Semua Rank" && listing.account_rank && !listing.account_rank.includes(selectedRank)) return false;
     if (searchQuery && !listing.title.toLowerCase().includes(searchQuery.toLowerCase()) && !listing.game_categories?.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -301,14 +317,17 @@ export default function Marketplace() {
     if (maxPrice && listing.price > parseInt(maxPrice.replace(/\D/g, ""))) return false;
     return true;
   }).sort((a: Listing, b: Listing) => {
+    // Listing sold selalu paling bawah, terlepas dari sort yang dipilih
+    if (a.status === "sold" && b.status !== "sold") return 1;
+    if (a.status !== "sold" && b.status === "sold") return -1;
     if (selectedSort === "Harga Terendah") return a.price - b.price;
     if (selectedSort === "Harga Tertinggi") return b.price - a.price;
     if (selectedSort === "Terpopuler") return (b.view_count || 0) - (a.view_count || 0);
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  // ✅ FIX 2: Hitung akun aktif (exclude sold)
-  const activeCount = listings.filter(l => l.status !== "sold").length;
+  // Hitung hanya akun aktif untuk counter hero
+  const activeCount = listings.filter(l => l.status === "active").length;
 
   const detail = activeDetail !== null ? listings.find((l: Listing) => l.id === activeDetail) : null;
   const hasActiveFilters = selectedGame !== "Semua Game" || selectedRank !== "Semua Rank" || searchQuery;
@@ -332,7 +351,6 @@ export default function Marketplace() {
           </p>
           <div style={{ display:"flex", gap:10, flexWrap:"wrap" as const }}>
             {[
-              // ✅ FIX 2: Pakai activeCount bukan listings.length
               { icon:<TrendingUp size={12}/>, label:`${activeCount}+ Akun Aktif`, color:"#10B981" },
               { icon:<Shield size={12}/>, label:"Escrow Protected", color:"#3B82F6" },
               { icon:<Zap size={12}/>, label:"Transaksi Aman", color:"#DC2626" },
@@ -419,7 +437,12 @@ export default function Marketplace() {
         {/* Results bar */}
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, flexWrap:"wrap", gap:8 }}>
           <p style={{ fontSize:13, color:"rgba(255,255,255,0.3)", margin:0, fontFamily:"'Barlow',sans-serif" }}>
-            Menampilkan <strong style={{ color:"rgba(255,255,255,0.7)" }}>{filtered.length}</strong> akun
+            Menampilkan <strong style={{ color:"rgba(255,255,255,0.7)" }}>{filtered.filter(l => l.status !== "sold").length}</strong> akun tersedia
+            {filtered.filter(l => l.status === "sold").length > 0 && (
+              <span style={{ color:"rgba(255,255,255,0.2)", marginLeft:6 }}>
+                · {filtered.filter(l => l.status === "sold").length} terjual
+              </span>
+            )}
           </p>
           {hasActiveFilters && (
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -456,17 +479,34 @@ export default function Marketplace() {
         ) : (
           <div className="mp-cards-grid">
             {filtered.map((listing: Listing, i: number) => {
-              const st = statusConfig[listing.status] || statusConfig.available;
+              const isSoldListing = listing.status === "sold";
+              const st = isSoldListing
+                ? statusConfig.sold
+                : (statusConfig[listing.status] || statusConfig.active);
               const gc = getGameColor(listing.game_categories?.name);
               const isFav = favs.includes(listing.id);
               const seller = listing.profiles;
-              
+
               return (
-                <div key={listing.id} className="mp-card mp-animate" style={{ animationDelay:`${i*70}ms` }} onClick={() => navigate(`/marketplace/${listing.id}`)}>
+                <div
+                  key={listing.id}
+                  className={`mp-card mp-animate ${isSoldListing ? "sold" : ""}`}
+                  style={{ animationDelay:`${i*70}ms` }}
+                  onClick={() => !isSoldListing && navigate(`/marketplace/${listing.id}`)}
+                >
                   <div className="mp-card-glow" style={{ background:gc.color }} />
 
+                  {/* Banner TERJUAL overlay */}
+                  {isSoldListing && (
+                    <div className="mp-sold-banner">TERJUAL</div>
+                  )}
+
                   {/* Top color bar */}
-                  <div className="mp-card-top-bar" style={{ background:`linear-gradient(90deg,${gc.color},${gc.color}88)` }} />
+                  <div className="mp-card-top-bar" style={{
+                    background: isSoldListing
+                      ? "linear-gradient(90deg,#DC2626,#7f1d1d)"
+                      : `linear-gradient(90deg,${gc.color},${gc.color}88)`
+                  }} />
 
                   <div className="mp-card-body">
                     {/* Row 1: game tag + fav */}
@@ -475,25 +515,31 @@ export default function Marketplace() {
                         <div style={{ width:32, height:32, borderRadius:9, background:`${gc.color}18`, border:`1px solid ${gc.color}30`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>
                           {gc.icon}
                         </div>
-                        <span style={{ fontSize:11, fontWeight:700, color:gc.color, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.05em", textTransform:"uppercase" as const }}>
+                        <span style={{ fontSize:11, fontWeight:700, color: isSoldListing ? "rgba(255,255,255,0.25)" : gc.color, fontFamily:"'Barlow',sans-serif", letterSpacing:"0.05em", textTransform:"uppercase" as const }}>
                           {listing.game_categories?.name || "Game"}
                         </span>
                       </div>
                       <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                        <button className={`mp-fav-btn ${isFav ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleFav(listing.id); }}>
-                          <Heart size={15} fill={isFav ? "#DC2626" : "none"} />
-                        </button>
+                        {!isSoldListing && (
+                          <button className={`mp-fav-btn ${isFav ? "active" : ""}`} onClick={(e) => { e.stopPropagation(); toggleFav(listing.id); }}>
+                            <Heart size={15} fill={isFav ? "#DC2626" : "none"} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     {/* Title */}
-                    <h3 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, color:"#fff", margin:0, lineHeight:1.25, letterSpacing:"0.01em" }}>
+                    <h3 style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:17, fontWeight:700, color: isSoldListing ? "rgba(255,255,255,0.3)" : "#fff", margin:0, lineHeight:1.25, letterSpacing:"0.01em" }}>
                       {listing.title}
                     </h3>
 
                     {/* Stats */}
                     <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
-                      {[{ l:"Rank", v:listing.account_rank || "-" },{ l:"Level", v:listing.account_level || "-" },{ l:"Status", v:st.label }].map((s) => (
+                      {[
+                        { l:"Rank",   v: listing.account_rank  || "-" },
+                        { l:"Level",  v: listing.account_level || "-" },
+                        { l:"Status", v: st.label },
+                      ].map((s) => (
                         <div key={s.l} className="mp-stat-chip">
                           <div style={{ fontSize:9, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:3 }}>{s.l}</div>
                           <div style={{ fontSize:12, fontWeight:700, color:s.l === "Status" ? st.color : "rgba(255,255,255,0.75)", fontFamily:"'Rajdhani',sans-serif", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{s.v}</div>
@@ -503,7 +549,12 @@ export default function Marketplace() {
 
                     {/* Seller row */}
                     <div className="mp-seller-row">
-                      <div className="mp-seller-avatar">{seller?.avatar_url ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", borderRadius:"50%", objectFit:"cover" }} /> : <User size={14} color="#fff" />}</div>
+                      <div className="mp-seller-avatar">
+                        {seller?.avatar_url
+                          ? <img src={seller.avatar_url} alt={seller.full_name} style={{ width:"100%", height:"100%", borderRadius:"50%", objectFit:"cover" }} />
+                          : <User size={14} color="#fff" />
+                        }
+                      </div>
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:13, fontWeight:700, color:"rgba(255,255,255,0.8)", fontFamily:"'Rajdhani',sans-serif" }}>{seller?.full_name || "Seller"}</div>
                         <div style={{ display:"flex", alignItems:"center", gap:4, fontSize:11, color:"rgba(255,255,255,0.3)", fontFamily:"'Barlow',sans-serif" }}>
@@ -526,7 +577,7 @@ export default function Marketplace() {
                     <div style={{ display:"flex", alignItems:"flex-end", justifyContent:"space-between" }}>
                       <div>
                         <div style={{ fontSize:10, color:"rgba(255,255,255,0.25)", textTransform:"uppercase" as const, letterSpacing:"0.07em", fontFamily:"'Barlow',sans-serif", marginBottom:2 }}>Harga</div>
-                        <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color:"#DC2626", lineHeight:1 }}>
+                        <div style={{ fontFamily:"'Rajdhani',sans-serif", fontSize:22, fontWeight:700, color: isSoldListing ? "rgba(255,255,255,0.2)" : "#DC2626", lineHeight:1, textDecoration: isSoldListing ? "line-through" : "none" }}>
                           {formatRupiah(listing.price)}
                         </div>
                       </div>
@@ -552,7 +603,8 @@ export default function Marketplace() {
       {/* Detail Modal */}
       {detail && (() => {
         const gc = getGameColor(detail.game_categories?.name);
-        const st = statusConfig[detail.status] || statusConfig.available;
+        const isSoldDetail = detail.status === "sold";
+        const st = isSoldDetail ? statusConfig.sold : (statusConfig[detail.status] || statusConfig.active);
         const seller = detail.profiles;
         return (
           <div className="mp-modal-overlay" onClick={() => setActiveDetail(null)}>
@@ -623,10 +675,18 @@ export default function Marketplace() {
                 </div>
 
                 <div style={{ display:"flex", gap:10 }}>
-                  <button className="mp-btn-ghost"><MessageCircle size={15} /> Chat Penjual</button>
-                  <button className="mp-btn-primary" onClick={() => navigate(`/marketplace/${detail.id}`)}>
-                    <Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} />
-                  </button>
+                  {isSoldDetail ? (
+                    <div style={{ flex:1, textAlign:"center", padding:"13px", background:"rgba(220,38,38,0.07)", border:"1px solid rgba(220,38,38,0.2)", borderRadius:12, color:"#DC2626", fontWeight:700, fontSize:14 }}>
+                      Akun Sudah Terjual
+                    </div>
+                  ) : (
+                    <>
+                      <button className="mp-btn-ghost"><MessageCircle size={15} /> Chat Penjual</button>
+                      <button className="mp-btn-primary" onClick={() => navigate(`/marketplace/${detail.id}`)}>
+                        <Zap size={14} fill="white" /> Beli Sekarang <ChevronRight size={14} />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

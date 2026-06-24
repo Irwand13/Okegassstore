@@ -224,12 +224,20 @@ export const getListings = async (filters?: {
   max_price?: number
   limit?: number
   offset?: number
+  include_sold?: boolean  // ← jika true, fetch active + sold sekaligus
 }) => {
   let query = supabase
     .from('listings')
     .select(`*, game_categories (name, icon, color)`)
-    .eq('status', 'active')          // hanya tampilkan listing aktif — sold otomatis hilang
     .order('created_at', { ascending: false })
+
+  // Jika include_sold = true → fetch active + sold (untuk marketplace tampil badge Terjual)
+  // Jika tidak → hanya active (default, hemat bandwidth)
+  if (filters?.include_sold) {
+    query = query.in('status', ['active', 'sold'])
+  } else {
+    query = query.eq('status', 'active')
+  }
 
   if (filters?.game_id)   query = query.eq('game_id', filters.game_id)
   if (filters?.min_price) query = query.gte('price', filters.min_price)
@@ -478,7 +486,6 @@ export const getOrCreateChat = async (
   buyerId: string,
   sellerId: string
 ): Promise<{ data: { id: string } | null; error: any }> => {
-  // Cek apakah sudah ada chat untuk order ini
   const { data: existing, error: fetchError } = await supabase
     .from('chats')
     .select('id')
@@ -488,7 +495,6 @@ export const getOrCreateChat = async (
   if (fetchError) return { data: null, error: fetchError }
   if (existing)   return { data: existing, error: null }
 
-  // Belum ada — buat baru
   const { data, error } = await supabase
     .from('chats')
     .insert({ order_id: orderId, listing_id: listingId, buyer_id: buyerId, seller_id: sellerId })
@@ -500,7 +506,6 @@ export const getOrCreateChat = async (
 
 /**
  * Ambil semua chat milik user (sebagai buyer atau seller).
- * Untuk halaman daftar chat / inbox.
  */
 export const getMyChats = async (userId: string) => {
   const { data, error } = await supabase
