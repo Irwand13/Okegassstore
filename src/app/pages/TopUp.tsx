@@ -32,6 +32,10 @@ type Game = {
 const GAMES: Game[] = [
   { id: "ml",  name: "Mobile Legends", icon: "⚔️",  color: "#1E88E5", currency: "Diamonds", need_server_id: true  },
   { id: "ff",  name: "Free Fire",      icon: "🔥",  color: "#FF4500", currency: "Diamonds", need_server_id: false },
+  { id: "pubg", name: "PUBG Mobile",    icon: "🎯",  color: "#FFB300", currency: "UC",       need_server_id: true  },
+  { id: "codm", name: "Call of Duty",   icon: "💀",  color: "#9C27B0", currency: "CP",       need_server_id: true  },
+  { id: "valo", name: "Valorant",     icon: "🎯",  color: "#FF3D00", currency: "VP",       need_server_id: false },
+  { id: "mlbb", name: "Magic Chess", icon: "🧙‍♂️", color: "#4CAF50", currency: "Diamonds", need_server_id: false },
 ];
 
 const formatRupiah = (n: number) => "Rp " + n.toLocaleString("id-ID");

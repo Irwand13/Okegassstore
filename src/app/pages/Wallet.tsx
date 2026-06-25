@@ -27,9 +27,12 @@ interface WalletLog {
 type ModalType = "topup" | "withdraw" | null;
 
 // ─── KONTROL FITUR ────────────────────────────────────────────────
-// FIX: matikan dulu Top Up sampai Midtrans benar-benar live (production keys
-// + webhook teruji). Set ke true kalau sudah siap menerima uang real.
-const TOPUP_ENABLED = false;
+// FIX: Top Up dinyalakan kembali. midtrans-webhook sudah ditulis ulang
+// (sebelumnya cuma boilerplate kosong, tidak pernah mengkredit saldo).
+// CATATAN: akun Midtrans belum diverifikasi penuh — popup Snap mungkin
+// tetap muncul untuk uji coba UI, tapi transaksi production sungguhan
+// bisa ditolak oleh Midtrans sampai verifikasi akun selesai.
+const TOPUP_ENABLED = true;
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 const formatRp = (n: number) =>
@@ -53,6 +56,22 @@ const txConfig: Record<TxType, {
   bonus:      { label: "Bonus",      icon: <Zap size={15} />,            color: "#FBBF24", bg: "rgba(251,191,36,0.12)",  border: "rgba(251,191,36,0.25)",  sign: "+" },
   withdrawal: { label: "Penarikan",  icon: <Building2 size={15} />,      color: "#C084FC", bg: "rgba(192,132,252,0.12)", border: "rgba(192,132,252,0.25)", sign: "-" },
 };
+
+// FIX: fallback untuk log.action yang TIDAK ADA di txConfig (data lama, nilai
+// yang sudah tidak dipakai, atau typo). Tanpa ini, txConfig[log.action] jadi
+// undefined dan crash saat diakses .bg/.border/.color/.label/.icon di JSX
+// -> "TypeError: Cannot read properties of undefined (reading 'bg')".
+const FALLBACK_TX_CONFIG = {
+  label: "Lainnya",
+  icon: <ArrowLeftRight size={15} />,
+  color: "#9CA3AF",
+  bg: "rgba(156,163,175,0.12)",
+  border: "rgba(156,163,175,0.25)",
+  sign: "+" as const,
+};
+
+const getTxConfig = (action: string) =>
+  txConfig[action as TxType] ?? FALLBACK_TX_CONFIG;
 
 const TOPUP_AMOUNTS = [25000, 50000, 100000, 200000, 500000, 1000000];
 
@@ -390,7 +409,7 @@ export default function WalletPage() {
           <div style={{ padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.05)", display: "flex", gap: 8, flexWrap: "wrap" as const }}>
             {(["all", "topup", "spend", "refund", "bonus", "withdrawal"] as const).map((f) => (
               <button key={f} className={`wl-filter-tab ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
-                {f === "all" ? "Semua" : txConfig[f]?.label ?? f}
+                {f === "all" ? "Semua" : getTxConfig(f).label}
               </button>
             ))}
           </div>
@@ -404,12 +423,12 @@ export default function WalletPage() {
               <div style={{ fontSize: 48, marginBottom: 16 }}>📭</div>
               <h3 style={{ fontFamily: "'Rajdhani',sans-serif", fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.4)", margin: "0 0 8px" }}>Belum ada transaksi</h3>
               <p style={{ color: "rgba(255,255,255,0.25)", fontFamily: "'Barlow',sans-serif", fontSize: 13 }}>
-                {filter === "all" ? "Riwayat transaksi kamu akan muncul di sini" : `Belum ada transaksi ${txConfig[filter as TxType]?.label}`}
+                {filter === "all" ? "Riwayat transaksi kamu akan muncul di sini" : `Belum ada transaksi ${getTxConfig(filter).label}`}
               </p>
             </div>
           ) : (
             filteredLogs.map((log) => {
-              const cfg = txConfig[log.action];
+              const cfg = getTxConfig(log.action);
               const isPositive = ["topup", "refund", "bonus"].includes(log.action);
               return (
                 <div key={log.id} className="wl-tx-item">
